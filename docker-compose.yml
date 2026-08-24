@@ -132,6 +132,27 @@ services:
       product-db:
         condition: service_healthy
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: api-gateway
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      API_GATEWAY_PORT: 3000
+      ORDER_SERVICE_URL: "http://order-service:3001"
+      INVENTORY_SERVICE_URL: "http://inventory-service:3002"
+      PRODUCT_SERVICE_URL: "http://product-service:3003"
+    depends_on:
+      - order-service
+      - inventory-service
+      - product-service
+
 volumes:
   order_db_data:
   inventory_db_data:
