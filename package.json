@@ -8,6 +8,9 @@
     "build:order": "nest build order-service",
     "start:order": "nest start order-service",
     "start:order:dev": "nest start order-service --watch",
+    "build:inventory": "nest build inventory-service",
+    "start:inventory": "nest start inventory-service",
+    "start:inventory:dev": "nest start inventory-service --watch",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "test": "jest",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"

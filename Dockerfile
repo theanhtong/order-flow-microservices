@@ -1,20 +1,23 @@
+ARG APP_NAME=order-service
+
 FROM node:20-alpine AS builder
+ARG APP_NAME
 WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm ci
 COPY tsconfig.json nest-cli.json ./
 COPY apps ./apps
 COPY libs ./libs
-RUN npm run build:order
+RUN npx nest build ${APP_NAME}
 
 FROM node:20-alpine AS production
+ARG APP_NAME
 WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY --from=builder /usr/src/app/dist ./dist
 
 ENV NODE_ENV=production
-ENV ORDER_SERVICE_PORT=3001
-EXPOSE 3001
+ENV APP_NAME=${APP_NAME}
 
-CMD ["node", "dist/apps/order-service/main.js"]
+CMD ["sh", "-c", "node dist/apps/$APP_NAME/main.js"]

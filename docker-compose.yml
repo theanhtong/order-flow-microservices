@@ -21,6 +21,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_NAME: order-service
     container_name: order-service
     restart: always
     ports:
@@ -34,5 +36,43 @@ services:
       order-db:
         condition: service_healthy
 
+  inventory-db:
+    image: postgres:16-alpine
+    container_name: inventory-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: db_inventory
+    ports:
+      - "5433:5432"
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d db_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: inventory-service
+    container_name: inventory-service
+    restart: always
+    ports:
+      - "${INVENTORY_SERVICE_PORT:-3002}:3002"
+    environment:
+      NODE_ENV: production
+      INVENTORY_SERVICE_PORT: 3002
+      DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@inventory-db:5432/db_inventory"
+      DB_SYNCHRONIZE: "true"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
 volumes:
   order_db_data:
+  inventory_db_data:
