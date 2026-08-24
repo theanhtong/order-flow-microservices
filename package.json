@@ -17,6 +17,9 @@
     "build:gateway": "nest build api-gateway",
     "start:gateway": "nest start api-gateway",
     "start:gateway:dev": "nest start api-gateway --watch",
+    "build:notification": "nest build notification-service",
+    "start:notification": "nest start notification-service",
+    "start:notification:dev": "nest start notification-service --watch",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "test": "jest",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"

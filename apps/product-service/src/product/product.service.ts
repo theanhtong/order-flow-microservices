@@ -15,7 +15,7 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
     @Inject('RABBITMQ_SERVICE')
     private readonly rabbitClient: ClientProxy,
-  ) {}
+  ) { }
 
   async createProduct(dto: CreateProductDto): Promise<Product> {
     const existing = await this.productRepository.findOne({ where: { sku: dto.sku } });
@@ -26,7 +26,6 @@ export class ProductService {
     const product = this.productRepository.create(dto);
     const savedProduct = await this.productRepository.save(product);
 
-    // Emit product.created event asynchronously to RabbitMQ (Inventory Service consumer)
     try {
       this.rabbitClient.emit(
         'product.created',
