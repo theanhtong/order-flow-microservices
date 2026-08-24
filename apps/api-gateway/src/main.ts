@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import * as proxy from 'express-http-proxy';
 import { AppModule } from './app.module';
 
@@ -17,11 +17,23 @@ async function bootstrap() {
   const inventoryServiceUrl = configService.get<string>('INVENTORY_SERVICE_URL', 'http://localhost:3002');
   const productServiceUrl = configService.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3003');
 
+  const createProxyErrorHandler = (serviceName: string, serviceUrl: string) => {
+    return (err: any, res: any, next: any) => {
+      logger.warn(`Upstream service "${serviceName}" at ${serviceUrl} is unreachable: ${err.message}`);
+      res.status(503).json({
+        statusCode: 503,
+        message: `Upstream service "${serviceName}" at ${serviceUrl} is currently unavailable. Please ensure the service container is running.`,
+        error: 'Service Unavailable',
+      });
+    };
+  };
+
   // Reverse Proxy Routing to Downstream Microservices
   app.use(
     '/api/v1/orders',
     proxy(orderServiceUrl, {
       proxyReqPathResolver: (req) => `/api/v1/orders${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Order Service', orderServiceUrl),
     }),
   );
 
@@ -29,6 +41,7 @@ async function bootstrap() {
     '/api/v1/inventory',
     proxy(inventoryServiceUrl, {
       proxyReqPathResolver: (req) => `/api/v1/inventory${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Inventory Service', inventoryServiceUrl),
     }),
   );
 
@@ -36,23 +49,46 @@ async function bootstrap() {
     '/api/v1/products',
     proxy(productServiceUrl, {
       proxyReqPathResolver: (req) => `/api/v1/products${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Product Service', productServiceUrl),
     }),
   );
 
-  // Consolidated Swagger Documentation for API Gateway Entry Point
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('API Gateway - OrderFlow Microservices')
-    .setDescription(
-      'Unified Reverse Proxy & Entry Point for Order, Inventory, and Product Microservices',
-    )
-    .setVersion('1.0')
-    .addTag('products', 'Product Catalog APIs (Proxied to Product Service:3003)')
-    .addTag('inventory', 'Inventory & Stock APIs (Proxied to Inventory Service:3002)')
-    .addTag('orders', 'Order Management APIs (Proxied to Order Service:3001)')
-    .build();
+  // Reverse Proxy OpenAPI Spec JSONs for Unified Swagger UI Dropdown
+  app.use(
+    '/api/docs/swagger-products.json',
+    proxy(productServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Product Service Docs', productServiceUrl),
+    }),
+  );
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  app.use(
+    '/api/docs/swagger-inventory.json',
+    proxy(inventoryServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Inventory Service Docs', inventoryServiceUrl),
+    }),
+  );
+
+  app.use(
+    '/api/docs/swagger-orders.json',
+    proxy(orderServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Order Service Docs', orderServiceUrl),
+    }),
+  );
+
+  // Setup Unified Multi-Service Swagger UI with Dropdown Selector
+  SwaggerModule.setup('api/docs', app, null, {
+    explorer: true,
+    swaggerOptions: {
+      urls: [
+        { url: '/api/docs/swagger-products.json', name: 'Product Service API' },
+        { url: '/api/docs/swagger-inventory.json', name: 'Inventory Service API' },
+        { url: '/api/docs/swagger-orders.json', name: 'Order Service API' },
+      ],
+    },
+  });
 
   const port = configService.get<number>('API_GATEWAY_PORT', 3000);
 
