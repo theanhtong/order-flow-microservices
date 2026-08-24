@@ -1,14 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ClientProxy } from '@nestjs/microservices';
 import { Product } from './entities/product.entity';
 import { CreateProductDto, UpdateProductDto } from './dto';
+import { ProductCreatedEvent } from '@orderflow-microservices/shared';
 
 @Injectable()
 export class ProductService {
+  private readonly logger = new Logger('ProductService');
+
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @Inject('RABBITMQ_SERVICE')
+    private readonly rabbitClient: ClientProxy,
   ) {}
 
   async createProduct(dto: CreateProductDto): Promise<Product> {
@@ -18,7 +24,24 @@ export class ProductService {
     }
 
     const product = this.productRepository.create(dto);
-    return await this.productRepository.save(product);
+    const savedProduct = await this.productRepository.save(product);
+
+    // Emit product.created event asynchronously to RabbitMQ (Inventory Service consumer)
+    try {
+      this.rabbitClient.emit(
+        'product.created',
+        new ProductCreatedEvent({
+          productId: savedProduct.id,
+          sku: savedProduct.sku,
+          initialQuantity: dto.initialQuantity ?? 0,
+        }),
+      );
+      this.logger.log(`Emitted product.created event for Product #${savedProduct.id} (SKU: ${savedProduct.sku})`);
+    } catch (error) {
+      this.logger.error(`Failed to emit product.created event for Product #${savedProduct.id}`, error);
+    }
+
+    return savedProduct;
   }
 
   async getProductById(id: string): Promise<Product> {

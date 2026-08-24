@@ -2,9 +2,9 @@ import { Controller, Post, Get, Patch, Body, Param, Logger } from '@nestjs/commo
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
-import { CreateInventoryDto, UpdateStockDto, DeductStockDto, ReserveStockDto } from './dto';
+import { UpdateStockDto, DeductStockDto, ReserveStockDto } from './dto';
 import { Inventory } from './entities/inventory.entity';
-import { OrderCreatedEvent } from '@orderflow-microservices/shared';
+import { OrderCreatedEvent, ProductCreatedEvent } from '@orderflow-microservices/shared';
 
 @ApiTags('inventory')
 @Controller('inventory')
@@ -12,6 +12,23 @@ export class InventoryController {
   private readonly logger = new Logger('InventoryController');
 
   constructor(private readonly inventoryService: InventoryService) {}
+
+  @EventPattern('product.created')
+  async handleProductCreated(@Payload() data: ProductCreatedEvent) {
+    this.logger.log(`Received product.created event for Product #${data.productId} (SKU: ${data.sku})`);
+    try {
+      await this.inventoryService.createInventory({
+        productId: data.productId,
+        sku: data.sku,
+        quantity: data.initialQuantity ?? 0,
+      });
+      this.logger.log(
+        `Automatically initialized inventory record for Product #${data.productId} with initial stock: ${data.initialQuantity ?? 0}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to initialize inventory for Product #${data.productId}: ${error.message}`);
+    }
+  }
 
   @EventPattern('order.created')
   async handleOrderCreated(@Payload() data: OrderCreatedEvent) {
@@ -26,13 +43,6 @@ export class InventoryController {
         }
       }
     }
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Create new inventory record for product' })
-  @ApiResponse({ status: 201, description: 'Inventory created', type: Inventory })
-  async createInventory(@Body() dto: CreateInventoryDto): Promise<Inventory> {
-    return await this.inventoryService.createInventory(dto);
   }
 
   @Get(':productId')
