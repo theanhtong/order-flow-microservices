@@ -1,7 +1,7 @@
 export class ProductCreatedEvent {
   productId: string;
   sku: string;
-  initialQuantity: number;
+  quantity: number;
   createdAt: Date;
 
   constructor(partial: Partial<ProductCreatedEvent>) {

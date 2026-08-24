@@ -17,11 +17,11 @@ export class CreateProductDto {
   @Min(0)
   price: number;
 
-  @ApiProperty({ description: 'Initial stock quantity for inventory', example: 100, minimum: 0, required: false })
+  @ApiProperty({ description: 'Stock quantity for inventory', example: 100, minimum: 0, required: false })
   @IsNumber()
   @Min(0)
   @IsOptional()
-  initialQuantity?: number;
+  quantity?: number;
 
   @ApiProperty({ description: 'Product description', example: 'Flagship smartphone', required: false })
   @IsString()

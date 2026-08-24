@@ -33,7 +33,7 @@ export class ProductService {
         new ProductCreatedEvent({
           productId: savedProduct.id,
           sku: savedProduct.sku,
-          initialQuantity: dto.initialQuantity ?? 0,
+          quantity: dto.quantity ?? 0,
         }),
       );
       this.logger.log(`Emitted product.created event for Product #${savedProduct.id} (SKU: ${savedProduct.sku})`);

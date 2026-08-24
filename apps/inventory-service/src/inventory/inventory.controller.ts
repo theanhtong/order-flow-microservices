@@ -20,10 +20,10 @@ export class InventoryController {
       await this.inventoryService.createInventory({
         productId: data.productId,
         sku: data.sku,
-        quantity: data.initialQuantity ?? 0,
+        quantity: data.quantity ?? 0,
       });
       this.logger.log(
-        `Automatically initialized inventory record for Product #${data.productId} with initial stock: ${data.initialQuantity ?? 0}`,
+        `Automatically initialized inventory record for Product #${data.productId} with stock: ${data.quantity ?? 0}`,
       );
     } catch (error) {
       this.logger.error(`Failed to initialize inventory for Product #${data.productId}: ${error.message}`);
