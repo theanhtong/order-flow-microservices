@@ -1,30 +1,37 @@
-import { Controller, Post, Get, Patch, Body, Param, Logger } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Controller, Post, Get, Patch, Body, Param, Logger, Inject } from '@nestjs/common';
+import { EventPattern, Payload, ClientProxy } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { UpdateStockDto, DeductStockDto, ReserveStockDto } from './dto';
 import { Inventory } from './entities/inventory.entity';
-import { OrderCreatedEvent, ProductCreatedEvent } from '@orderflow-microservices/shared';
+import {
+  OrderCreatedEvent,
+  ProductCreatedEvent,
+  InventoryReservedEvent,
+  InventoryFailedEvent,
+} from '@orderflow-microservices/shared';
 
 @ApiTags('inventory')
 @Controller('inventory')
 export class InventoryController {
   private readonly logger = new Logger('InventoryController');
 
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    @Inject('RABBITMQ_SERVICE')
+    private readonly rabbitClient: ClientProxy,
+  ) { }
 
   @EventPattern('product.created')
   async handleProductCreated(@Payload() data: ProductCreatedEvent) {
-    this.logger.log(`Received product.created event for Product #${data.productId} (SKU: ${data.sku})`);
+    this.logger.log(`Received product.created event for Product #${data.productId}`);
     try {
       await this.inventoryService.createInventory({
         productId: data.productId,
         sku: data.sku,
         quantity: data.quantity ?? 0,
       });
-      this.logger.log(
-        `Automatically initialized inventory record for Product #${data.productId} with stock: ${data.quantity ?? 0}`,
-      );
+      this.logger.log(`Initialized inventory record for Product #${data.productId}`);
     } catch (error) {
       this.logger.error(`Failed to initialize inventory for Product #${data.productId}: ${error.message}`);
     }
@@ -33,15 +40,45 @@ export class InventoryController {
   @EventPattern('order.created')
   async handleOrderCreated(@Payload() data: OrderCreatedEvent) {
     this.logger.log(`Received order.created event for Order #${data.orderId}`);
+    const reservedItems: { productId: string; quantity: number }[] = [];
+    let isSuccess = true;
+    let failureReason = '';
+
     if (Array.isArray(data.items)) {
       for (const item of data.items) {
         try {
           await this.inventoryService.reserveStock(item.productId, { quantity: item.quantity });
-          this.logger.log(`Automatically reserved ${item.quantity} units for product ${item.productId}`);
+          reservedItems.push({ productId: item.productId, quantity: item.quantity });
+          this.logger.log(`Reserved ${item.quantity} units for product ${item.productId}`);
         } catch (error) {
+          isSuccess = false;
+          failureReason = error.message;
           this.logger.error(`Failed to reserve stock for product ${item.productId}: ${error.message}`);
+          break;
         }
       }
+    }
+
+    if (isSuccess) {
+      this.rabbitClient.emit(
+        'inventory.reserved',
+        new InventoryReservedEvent({ orderId: data.orderId }),
+      );
+      this.logger.log(`Emitted inventory.reserved event for Order #${data.orderId}`);
+    } else {
+      for (const item of reservedItems) {
+        try {
+          await this.inventoryService.releaseStock(item.productId, { quantity: item.quantity });
+        } catch (rollbackError) {
+          this.logger.error(`Failed to rollback stock for product ${item.productId}: ${rollbackError.message}`);
+        }
+      }
+
+      this.rabbitClient.emit(
+        'inventory.failed',
+        new InventoryFailedEvent({ orderId: data.orderId, reason: failureReason }),
+      );
+      this.logger.log(`Emitted inventory.failed event for Order #${data.orderId}. Reason: ${failureReason}`);
     }
   }
 

@@ -1,13 +1,39 @@
-import { Controller, Post, Get, Patch, Body, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, ParseUUIDPipe, Logger } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderStatus } from './entities/order.entity';
+import { InventoryReservedEvent, InventoryFailedEvent } from '@orderflow-microservices/shared';
 
 @ApiTags('orders')
 @Controller('orders')
 export class OrderController {
+  private readonly logger = new Logger('OrderController');
+
   constructor(private readonly orderService: OrderService) {}
+
+  @EventPattern('inventory.reserved')
+  async handleInventoryReserved(@Payload() data: InventoryReservedEvent) {
+    this.logger.log(`Received inventory.reserved event for Order #${data.orderId}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CONFIRMED);
+      this.logger.log(`Successfully updated Order #${data.orderId} status to CONFIRMED`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to CONFIRMED: ${error.message}`);
+    }
+  }
+
+  @EventPattern('inventory.failed')
+  async handleInventoryFailed(@Payload() data: InventoryFailedEvent) {
+    this.logger.log(`Received inventory.failed event for Order #${data.orderId}. Reason: ${data.reason}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CANCELLED);
+      this.logger.log(`Successfully updated Order #${data.orderId} status to CANCELLED`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to CANCELLED: ${error.message}`);
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new order' })

@@ -78,7 +78,6 @@ async function bootstrap() {
     }),
   );
 
-  // Setup Unified Multi-Service Swagger UI with Dropdown Selector
   SwaggerModule.setup('api/docs', app, null, {
     explorer: true,
     swaggerOptions: {
