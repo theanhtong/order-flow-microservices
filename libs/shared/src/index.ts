@@ -1,2 +1,1 @@
-// Shared library entry point
-export {};
+export * from './events/order-created.event';

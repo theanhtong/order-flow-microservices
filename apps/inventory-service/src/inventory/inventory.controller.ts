@@ -1,13 +1,32 @@
-import { Controller, Post, Get, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, Logger } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { CreateInventoryDto, UpdateStockDto, DeductStockDto, ReserveStockDto } from './dto';
 import { Inventory } from './entities/inventory.entity';
+import { OrderCreatedEvent } from '@orderflow-microservices/shared';
 
 @ApiTags('inventory')
 @Controller('inventory')
 export class InventoryController {
+  private readonly logger = new Logger('InventoryController');
+
   constructor(private readonly inventoryService: InventoryService) {}
+
+  @EventPattern('order.created')
+  async handleOrderCreated(@Payload() data: OrderCreatedEvent) {
+    this.logger.log(`Received order.created event for Order #${data.orderId}`);
+    if (Array.isArray(data.items)) {
+      for (const item of data.items) {
+        try {
+          await this.inventoryService.reserveStock(item.productId, { quantity: item.quantity });
+          this.logger.log(`Automatically reserved ${item.quantity} units for product ${item.productId}`);
+        } catch (error) {
+          this.logger.error(`Failed to reserve stock for product ${item.productId}: ${error.message}`);
+        }
+      }
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create new inventory record for product' })

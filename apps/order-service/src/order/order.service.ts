@@ -1,18 +1,24 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ClientProxy } from '@nestjs/microservices';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderCreatedEvent } from '@orderflow-microservices/shared';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger('OrderService');
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
-  ) { }
+    @Inject('RABBITMQ_SERVICE')
+    private readonly rabbitClient: ClientProxy,
+  ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const totalAmount = createOrderDto.items.reduce(
@@ -33,7 +39,30 @@ export class OrderService {
       ),
     });
 
-    return await this.orderRepository.save(order);
+    const savedOrder = await this.orderRepository.save(order);
+
+    // Emit order.created event asynchronously to RabbitMQ
+    try {
+      this.rabbitClient.emit(
+        'order.created',
+        new OrderCreatedEvent({
+          orderId: savedOrder.id,
+          customerId: savedOrder.customerId,
+          totalAmount: savedOrder.totalAmount,
+          items: savedOrder.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            price: Number(i.price),
+          })),
+          createdAt: savedOrder.createdAt,
+        }),
+      );
+      this.logger.log(`Emitted order.created event for Order #${savedOrder.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to emit order.created event for Order #${savedOrder.id}`, error);
+    }
+
+    return savedOrder;
   }
 
   async getOrderById(id: string): Promise<Order> {

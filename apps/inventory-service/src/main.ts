@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
@@ -18,6 +19,23 @@ async function bootstrap() {
     }),
   );
 
+  const configService = app.get(ConfigService);
+  const rmqUrl = configService.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672');
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rmqUrl],
+      queue: 'orders_queue',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  await app.startAllMicroservices();
+  logger.log('Inventory Service RabbitMQ Consumer connected to queue: orders_queue');
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Inventory Service API')
     .setDescription('Stock and Inventory Management Microservice API Documentation')
@@ -28,7 +46,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('INVENTORY_SERVICE_PORT', 3002);
 
   await app.listen(port);
