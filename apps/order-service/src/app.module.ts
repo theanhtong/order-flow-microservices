@@ -15,16 +15,17 @@ import { OrderItem } from './order/entities/order-item.entity';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
+        url: configService.get<string>('DATABASE_URL'),
         host: configService.get<string>('DB_HOST', 'localhost'),
         port: configService.get<number>('DB_PORT', 5432),
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_NAME', 'db_order'),
         entities: [Order, OrderItem],
-        synchronize: configService.get<boolean>('DB_SYNCHRONIZE', true),
+        synchronize: String(configService.get('DB_SYNCHRONIZE', 'true')) === 'true',
       }),
     }),
     OrderModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

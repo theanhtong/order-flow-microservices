@@ -1,0 +1,38 @@
+services:
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-db_order}
+    ports:
+      - "5432:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-db_order}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-service
+    restart: always
+    ports:
+      - "${ORDER_SERVICE_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      ORDER_SERVICE_PORT: 3001
+      DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@order-db:5432/${DB_NAME:-db_order}"
+      DB_SYNCHRONIZE: "true"
+    depends_on:
+      order-db:
+        condition: service_healthy
+
+volumes:
+  order_db_data:

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -12,7 +12,7 @@ export class OrderService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
-  ) {}
+  ) { }
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const totalAmount = createOrderDto.items.reduce(
@@ -51,6 +51,24 @@ export class OrderService {
 
   async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
     const order = await this.getOrderById(id);
+
+    if (order.status === status) {
+      throw new BadRequestException(`Order status is already ${status}`);
+    }
+
+    const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.CANCELLED],
+      [OrderStatus.CANCELLED]: [],
+    };
+
+    const validNextStates = allowedTransitions[order.status] || [];
+    if (!validNextStates.includes(status)) {
+      throw new BadRequestException(
+        `Cannot transition order status from ${order.status} to ${status}`,
+      );
+    }
+
     order.status = status;
     return await this.orderRepository.save(order);
   }
