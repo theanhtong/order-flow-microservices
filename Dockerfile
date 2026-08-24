@@ -20,4 +20,4 @@ COPY --from=builder /usr/src/app/dist ./dist
 ENV NODE_ENV=production
 ENV APP_NAME=${APP_NAME}
 
-CMD ["sh", "-c", "node dist/apps/$APP_NAME/main.js"]
+CMD ["sh", "-c", "if [ -f dist/apps/$APP_NAME/apps/$APP_NAME/src/main.js ]; then node dist/apps/$APP_NAME/apps/$APP_NAME/src/main.js; else node dist/apps/$APP_NAME/main.js; fi"]

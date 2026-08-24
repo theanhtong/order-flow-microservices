@@ -52,8 +52,6 @@ export class InventoryService {
     const inventory = await this.getByProductId(productId);
 
     if (inventory.quantity < dto.quantity) {
-      7
-      7
       throw new BadRequestException(
         `Cannot deduct ${dto.quantity} items for product ${productId}. Current stock: ${inventory.quantity}`,
       );

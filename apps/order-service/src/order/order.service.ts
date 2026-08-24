@@ -18,7 +18,7 @@ export class OrderService {
     private readonly orderItemRepository: Repository<OrderItem>,
     @Inject('RABBITMQ_SERVICE')
     private readonly rabbitClient: ClientProxy,
-  ) {}
+  ) { }
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const totalAmount = createOrderDto.items.reduce(

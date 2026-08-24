@@ -95,6 +95,44 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  product-db:
+    image: postgres:16-alpine
+    container_name: product-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: db_product
+    ports:
+      - "5434:5432"
+    volumes:
+      - product_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d db_product"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  product-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: product-service
+    container_name: product-service
+    restart: always
+    ports:
+      - "${PRODUCT_SERVICE_PORT:-3003}:3003"
+    environment:
+      NODE_ENV: production
+      PRODUCT_SERVICE_PORT: 3003
+      DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@product-db:5432/db_product"
+      DB_SYNCHRONIZE: "true"
+    depends_on:
+      product-db:
+        condition: service_healthy
+
 volumes:
   order_db_data:
   inventory_db_data:
+  product_db_data:

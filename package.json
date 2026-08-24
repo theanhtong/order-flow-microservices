@@ -11,6 +11,9 @@
     "build:inventory": "nest build inventory-service",
     "start:inventory": "nest start inventory-service",
     "start:inventory:dev": "nest start inventory-service --watch",
+    "build:product": "nest build product-service",
+    "start:product": "nest start product-service",
+    "start:product:dev": "nest start product-service --watch",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "test": "jest",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
