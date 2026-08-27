@@ -1,12 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const logger = new Logger('InventoryService');
+  const logger = new Logger('AuthService');
   const app = await NestFactory.create(AppModule);
 
   app.enableCors();
@@ -20,36 +19,22 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
-  const rmqUrl = configService.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672');
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [rmqUrl],
-      queue: 'inventory_queue',
-      queueOptions: {
-        durable: true,
-      },
-    },
-  });
-
-  await app.startAllMicroservices();
-  logger.log('Inventory Service RabbitMQ Consumer connected to queue: inventory_queue');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Inventory Service API')
-    .setDescription('Stock and Inventory Management Microservice API Documentation')
+    .setTitle('Auth Service API')
+    .setDescription('Authentication, Authorization & Role Management Microservice API Documentation')
     .setVersion('1.0')
-    .addTag('inventory', 'Inventory management operations')
+    .addTag('auth', 'User Authentication & RBAC Operations')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get<number>('INVENTORY_SERVICE_PORT', 3002);
+  const port = configService.get<number>('AUTH_SERVICE_PORT', 3004);
 
   await app.listen(port);
-  logger.log(`Inventory Service is running on port ${port}`);
+  logger.log(`Auth Service is running on port ${port}`);
   logger.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
 }
 

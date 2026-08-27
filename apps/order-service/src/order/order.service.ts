@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ClientProxy } from '@nestjs/microservices';
+import { Repository, DataSource } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OutboxMessage, OutboxStatus } from '../outbox/outbox-message.entity';
 import { OrderCreatedEvent } from '@orderflow-microservices/shared';
 
 @Injectable()
@@ -16,9 +16,8 @@ export class OrderService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
-    @Inject('RABBITMQ_SERVICE')
-    private readonly rabbitClient: ClientProxy,
-  ) { }
+    private readonly dataSource: DataSource,
+  ) {}
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const totalAmount = createOrderDto.items.reduce(
@@ -26,43 +25,50 @@ export class OrderService {
       0,
     );
 
-    const order = this.orderRepository.create({
-      customerId: createOrderDto.customerId,
-      totalAmount,
-      status: OrderStatus.PENDING,
-      items: createOrderDto.items.map((item) =>
-        this.orderItemRepository.create({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-        }),
-      ),
-    });
+    return await this.dataSource.transaction(async (manager) => {
+      const order = manager.create(Order, {
+        customerId: createOrderDto.customerId,
+        totalAmount,
+        status: OrderStatus.PENDING,
+        items: createOrderDto.items.map((item) =>
+          manager.create(OrderItem, {
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          }),
+        ),
+      });
 
-    const savedOrder = await this.orderRepository.save(order);
+      const savedOrder = await manager.save(Order, order);
 
-    // Emit order.created event asynchronously to RabbitMQ
-    try {
-      this.rabbitClient.emit(
-        'order.created',
-        new OrderCreatedEvent({
-          orderId: savedOrder.id,
-          customerId: savedOrder.customerId,
-          totalAmount: savedOrder.totalAmount,
-          items: savedOrder.items.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            price: Number(i.price),
-          })),
-          createdAt: savedOrder.createdAt,
-        }),
+      const outboxPayload = new OrderCreatedEvent({
+        orderId: savedOrder.id,
+        customerId: savedOrder.customerId,
+        totalAmount: savedOrder.totalAmount,
+        items: savedOrder.items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          price: Number(i.price),
+        })),
+        createdAt: savedOrder.createdAt,
+      });
+
+      const outboxMessage = manager.create(OutboxMessage, {
+        aggregateType: 'Order',
+        aggregateId: savedOrder.id,
+        eventType: 'order.created',
+        payload: { ...outboxPayload },
+        status: OutboxStatus.PENDING,
+      });
+
+      await manager.save(OutboxMessage, outboxMessage);
+
+      this.logger.log(
+        `Created Order #${savedOrder.id} and OutboxMessage #${outboxMessage.id} in a single atomic database transaction`,
       );
-      this.logger.log(`Emitted order.created event for Order #${savedOrder.id}`);
-    } catch (error) {
-      this.logger.error(`Failed to emit order.created event for Order #${savedOrder.id}`, error);
-    }
 
-    return savedOrder;
+      return savedOrder;
+    });
   }
 
   async getOrderById(id: string): Promise<Order> {

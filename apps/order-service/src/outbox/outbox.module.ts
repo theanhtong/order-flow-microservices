@@ -2,13 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { Product } from './entities/product.entity';
-import { ProductService } from './product.service';
-import { ProductController } from './product.controller';
+import { OutboxMessage } from './outbox-message.entity';
+import { OutboxProcessorService } from './outbox-processor.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product]),
+    TypeOrmModule.forFeature([OutboxMessage]),
     ClientsModule.registerAsync([
       {
         name: 'RABBITMQ_SERVICE',
@@ -27,8 +26,7 @@ import { ProductController } from './product.controller';
       },
     ]),
   ],
-  controllers: [ProductController],
-  providers: [ProductService],
-  exports: [ProductService],
+  providers: [OutboxProcessorService],
+  exports: [TypeOrmModule, OutboxProcessorService],
 })
-export class ProductModule {}
+export class OutboxModule {}

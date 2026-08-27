@@ -15,6 +15,44 @@ services:
       timeout: 5s
       retries: 5
 
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: db_auth
+    ports:
+      - "5435:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d db_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: auth-service
+    container_name: auth-service
+    restart: always
+    ports:
+      - "${AUTH_SERVICE_PORT:-3004}:3004"
+    environment:
+      NODE_ENV: production
+      AUTH_SERVICE_PORT: 3004
+      DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@auth-db:5432/db_auth"
+      DB_SYNCHRONIZE: "true"
+      JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
   order-db:
     image: postgres:16-alpine
     container_name: order-db
@@ -128,8 +166,11 @@ services:
       PRODUCT_SERVICE_PORT: 3003
       DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@product-db:5432/db_product"
       DB_SYNCHRONIZE: "true"
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672"
     depends_on:
       product-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   api-gateway:
@@ -145,10 +186,13 @@ services:
     environment:
       NODE_ENV: production
       API_GATEWAY_PORT: 3000
+      AUTH_SERVICE_URL: "http://auth-service:3004"
       ORDER_SERVICE_URL: "http://order-service:3001"
       INVENTORY_SERVICE_URL: "http://inventory-service:3002"
       PRODUCT_SERVICE_URL: "http://product-service:3003"
+      JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
     depends_on:
+      - auth-service
       - order-service
       - inventory-service
       - product-service
@@ -169,6 +213,7 @@ services:
         condition: service_healthy
 
 volumes:
+  auth_db_data:
   order_db_data:
   inventory_db_data:
   product_db_data:

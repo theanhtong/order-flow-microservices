@@ -34,7 +34,7 @@ export class ProductService {
           sku: savedProduct.sku,
           quantity: dto.quantity ?? 0,
         }),
-      );
+      ).subscribe();
       this.logger.log(`Emitted product.created event for Product #${savedProduct.id} (SKU: ${savedProduct.sku})`);
     } catch (error) {
       this.logger.error(`Failed to emit product.created event for Product #${savedProduct.id}`, error);

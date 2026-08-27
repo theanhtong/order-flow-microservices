@@ -63,7 +63,7 @@ export class InventoryController {
       this.rabbitClient.emit(
         'inventory.reserved',
         new InventoryReservedEvent({ orderId: data.orderId }),
-      );
+      ).subscribe();
       this.logger.log(`Emitted inventory.reserved event for Order #${data.orderId}`);
     } else {
       for (const item of reservedItems) {
@@ -77,7 +77,7 @@ export class InventoryController {
       this.rabbitClient.emit(
         'inventory.failed',
         new InventoryFailedEvent({ orderId: data.orderId, reason: failureReason }),
-      );
+      ).subscribe();
       this.logger.log(`Emitted inventory.failed event for Order #${data.orderId}. Reason: ${failureReason}`);
     }
   }

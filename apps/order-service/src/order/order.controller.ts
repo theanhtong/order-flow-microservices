@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Body, Param, ParseUUIDPipe, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, ParseUUIDPipe, Logger, Headers } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { OrderService } from './order.service';
@@ -39,7 +39,13 @@ export class OrderController {
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponse({ status: 201, description: 'Order successfully created', type: Order })
   @ApiResponse({ status: 400, description: 'Invalid input payload' })
-  async createOrder(@Body() createOrderDto: CreateOrderDto): Promise<Order> {
+  async createOrder(
+    @Body() createOrderDto: CreateOrderDto,
+    @Headers('x-user-id') userId?: string,
+  ): Promise<Order> {
+    if (userId) {
+      createOrderDto.customerId = userId;
+    }
     return await this.orderService.createOrder(createOrderDto);
   }
 

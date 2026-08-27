@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { SwaggerModule } from '@nestjs/swagger';
 import * as proxy from 'express-http-proxy';
 import { AppModule } from './app.module';
+import { createJwtGatewayMiddleware } from './middleware/jwt-auth.middleware';
 
 async function bootstrap() {
   const logger = new Logger('APIGateway');
@@ -12,7 +13,9 @@ async function bootstrap() {
   app.enableCors();
 
   const configService = app.get(ConfigService);
+  const jwtSecret = configService.get<string>('JWT_SECRET', 'super_secret_jwt_key_2026');
 
+  const authServiceUrl = configService.get<string>('AUTH_SERVICE_URL', 'http://localhost:3004');
   const orderServiceUrl = configService.get<string>('ORDER_SERVICE_URL', 'http://localhost:3001');
   const inventoryServiceUrl = configService.get<string>('INVENTORY_SERVICE_URL', 'http://localhost:3002');
   const productServiceUrl = configService.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3003');
@@ -28,7 +31,18 @@ async function bootstrap() {
     };
   };
 
+  // Attach JWT Security & RBAC Middleware
+  app.use(createJwtGatewayMiddleware(jwtSecret));
+
   // Reverse Proxy Routing to Downstream Microservices
+  app.use(
+    '/api/v1/auth',
+    proxy(authServiceUrl, {
+      proxyReqPathResolver: (req) => `/api/v1/auth${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Auth Service', authServiceUrl),
+    }),
+  );
+
   app.use(
     '/api/v1/orders',
     proxy(orderServiceUrl, {
@@ -54,6 +68,14 @@ async function bootstrap() {
   );
 
   // Reverse Proxy OpenAPI Spec JSONs for Unified Swagger UI Dropdown
+  app.use(
+    '/api/docs/swagger-auth.json',
+    proxy(authServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Auth Service Docs', authServiceUrl),
+    }),
+  );
+
   app.use(
     '/api/docs/swagger-products.json',
     proxy(productServiceUrl, {
@@ -82,6 +104,7 @@ async function bootstrap() {
     explorer: true,
     swaggerOptions: {
       urls: [
+        { url: '/api/docs/swagger-auth.json', name: 'Auth Service API' },
         { url: '/api/docs/swagger-products.json', name: 'Product Service API' },
         { url: '/api/docs/swagger-inventory.json', name: 'Inventory Service API' },
         { url: '/api/docs/swagger-orders.json', name: 'Order Service API' },
@@ -94,6 +117,7 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`API Gateway is running on port ${port}`);
   logger.log(`Unified Swagger API Documentation available at http://localhost:${port}/api/docs`);
+  logger.log(`Routing /api/v1/auth -> ${authServiceUrl}`);
   logger.log(`Routing /api/v1/products -> ${productServiceUrl}`);
   logger.log(`Routing /api/v1/inventory -> ${inventoryServiceUrl}`);
   logger.log(`Routing /api/v1/orders -> ${orderServiceUrl}`);
