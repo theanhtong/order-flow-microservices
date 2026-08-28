@@ -13,7 +13,8 @@ services:
       test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 15s
 
   auth-db:
     image: postgres:16-alpine
@@ -51,6 +52,46 @@ services:
       JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
     depends_on:
       auth-db:
+        condition: service_healthy
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: payment-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: db_payment
+    ports:
+      - "5436:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d db_payment"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: payment-service
+    container_name: payment-service
+    restart: always
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-3005}:3005"
+    environment:
+      NODE_ENV: production
+      PAYMENT_SERVICE_PORT: 3005
+      DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@payment-db:5432/db_payment"
+      DB_SYNCHRONIZE: "true"
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   order-db:
@@ -190,12 +231,14 @@ services:
       ORDER_SERVICE_URL: "http://order-service:3001"
       INVENTORY_SERVICE_URL: "http://inventory-service:3002"
       PRODUCT_SERVICE_URL: "http://product-service:3003"
+      PAYMENT_SERVICE_URL: "http://payment-service:3005"
       JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
     depends_on:
       - auth-service
       - order-service
       - inventory-service
       - product-service
+      - payment-service
 
   notification-service:
     build:
@@ -214,6 +257,7 @@ services:
 
 volumes:
   auth_db_data:
+  payment_db_data:
   order_db_data:
   inventory_db_data:
   product_db_data:

@@ -11,7 +11,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RegisterDto, LoginDto, CreateUserAdminDto, UpdateStatusDto } from './dto';
@@ -34,20 +34,24 @@ export class AuthService implements OnModuleInit {
   }
 
   private async seedDefaultAdmin() {
-    const adminCount = await this.userRepository.count({
-      where: { role: UserRole.SYSTEM_ADMIN },
-    });
-    if (adminCount === 0) {
-      const passwordHash = await bcrypt.hash('Sysadmin@123', 10);
-      const defaultAdmin = this.userRepository.create({
-        email: 'sysadmin@example.com',
-        passwordHash,
-        fullName: 'Master System Administrator',
-        role: UserRole.SYSTEM_ADMIN,
-        isActive: true,
+    try {
+      const adminCount = await this.userRepository.count({
+        where: { role: UserRole.SYSTEM_ADMIN },
       });
-      await this.userRepository.save(defaultAdmin);
-      this.logger.log('Seeded default SYSTEM_ADMIN account: sysadmin@example.com / Sysadmin@123');
+      if (adminCount === 0) {
+        const passwordHash = await bcrypt.hash('Sysadmin@123', 10);
+        const defaultAdmin = this.userRepository.create({
+          email: 'sysadmin@example.com',
+          passwordHash,
+          fullName: 'Master System Administrator',
+          role: UserRole.SYSTEM_ADMIN,
+          isActive: true,
+        });
+        await this.userRepository.save(defaultAdmin);
+        this.logger.log('Seeded default SYSTEM_ADMIN account: sysadmin@example.com / Sysadmin@123');
+      }
+    } catch (error) {
+      this.logger.warn(`Could not seed default admin on startup: ${error.message}`);
     }
   }
 
@@ -255,7 +259,10 @@ export class AuthService implements OnModuleInit {
     };
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshTokenStr = this.jwtService.sign({ sub: user.id }, { expiresIn: '7d' });
+    const refreshTokenStr = this.jwtService.sign(
+      { sub: user.id, jti: `${user.id}-${Date.now()}-${Math.random()}` },
+      { expiresIn: '7d' },
+    );
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);

@@ -19,6 +19,7 @@ async function bootstrap() {
   const orderServiceUrl = configService.get<string>('ORDER_SERVICE_URL', 'http://localhost:3001');
   const inventoryServiceUrl = configService.get<string>('INVENTORY_SERVICE_URL', 'http://localhost:3002');
   const productServiceUrl = configService.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3003');
+  const paymentServiceUrl = configService.get<string>('PAYMENT_SERVICE_URL', 'http://localhost:3005');
 
   const createProxyErrorHandler = (serviceName: string, serviceUrl: string) => {
     return (err: any, res: any, next: any) => {
@@ -67,6 +68,14 @@ async function bootstrap() {
     }),
   );
 
+  app.use(
+    '/api/v1/payments',
+    proxy(paymentServiceUrl, {
+      proxyReqPathResolver: (req) => `/api/v1/payments${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Payment Service', paymentServiceUrl),
+    }),
+  );
+
   // Reverse Proxy OpenAPI Spec JSONs for Unified Swagger UI Dropdown
   app.use(
     '/api/docs/swagger-auth.json',
@@ -100,6 +109,14 @@ async function bootstrap() {
     }),
   );
 
+  app.use(
+    '/api/docs/swagger-payment.json',
+    proxy(paymentServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Payment Service Docs', paymentServiceUrl),
+    }),
+  );
+
   SwaggerModule.setup('api/docs', app, null, {
     explorer: true,
     swaggerOptions: {
@@ -108,6 +125,7 @@ async function bootstrap() {
         { url: '/api/docs/swagger-products.json', name: 'Product Service API' },
         { url: '/api/docs/swagger-inventory.json', name: 'Inventory Service API' },
         { url: '/api/docs/swagger-orders.json', name: 'Order Service API' },
+        { url: '/api/docs/swagger-payment.json', name: 'Payment Service API' },
       ],
     },
   });
@@ -121,6 +139,7 @@ async function bootstrap() {
   logger.log(`Routing /api/v1/products -> ${productServiceUrl}`);
   logger.log(`Routing /api/v1/inventory -> ${inventoryServiceUrl}`);
   logger.log(`Routing /api/v1/orders -> ${orderServiceUrl}`);
+  logger.log(`Routing /api/v1/payments -> ${paymentServiceUrl}`);
 }
 
 bootstrap();

@@ -4,7 +4,12 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/s
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderStatus } from './entities/order.entity';
-import { InventoryReservedEvent, InventoryFailedEvent } from '@orderflow-microservices/shared';
+import {
+  InventoryReservedEvent,
+  InventoryFailedEvent,
+  PaymentCompletedEvent,
+  PaymentFailedEvent,
+} from '@orderflow-microservices/shared';
 
 @ApiTags('orders')
 @Controller('orders')
@@ -15,13 +20,7 @@ export class OrderController {
 
   @EventPattern('inventory.reserved')
   async handleInventoryReserved(@Payload() data: InventoryReservedEvent) {
-    this.logger.log(`Received inventory.reserved event for Order #${data.orderId}`);
-    try {
-      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CONFIRMED);
-      this.logger.log(`Successfully updated Order #${data.orderId} status to CONFIRMED`);
-    } catch (error) {
-      this.logger.error(`Failed to update Order #${data.orderId} status to CONFIRMED: ${error.message}`);
-    }
+    this.logger.log(`Received inventory.reserved event for Order #${data.orderId}. Reserved stock held.`);
   }
 
   @EventPattern('inventory.failed')
@@ -30,6 +29,28 @@ export class OrderController {
     try {
       await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CANCELLED);
       this.logger.log(`Successfully updated Order #${data.orderId} status to CANCELLED`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to CANCELLED: ${error.message}`);
+    }
+  }
+
+  @EventPattern('payment.completed')
+  async handlePaymentCompleted(@Payload() data: PaymentCompletedEvent) {
+    this.logger.log(`Received payment.completed event for Order #${data.orderId}. Txn: ${data.transactionId}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CONFIRMED);
+      this.logger.log(`Successfully confirmed Order #${data.orderId} after successful online payment`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to CONFIRMED: ${error.message}`);
+    }
+  }
+
+  @EventPattern('payment.failed')
+  async handlePaymentFailed(@Payload() data: PaymentFailedEvent) {
+    this.logger.log(`Received payment.failed event for Order #${data.orderId}. Reason: ${data.reason}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CANCELLED);
+      this.logger.log(`Successfully updated Order #${data.orderId} status to CANCELLED due to payment failure`);
     } catch (error) {
       this.logger.error(`Failed to update Order #${data.orderId} status to CANCELLED: ${error.message}`);
     }

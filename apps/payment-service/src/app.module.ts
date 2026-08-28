@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './auth/entities/user.entity';
-import { RefreshToken } from './auth/entities/refresh-token.entity';
-import { AuthModule } from './auth/auth.module';
+import { Payment } from './payment/entities/payment.entity';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -16,15 +15,15 @@ import { AuthModule } from './auth/auth.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        url: configService.get<string>('DATABASE_URL', 'postgres://postgres:postgres@auth-db:5432/db_auth'),
-        entities: [User, RefreshToken],
+        url: configService.get<string>('DATABASE_URL', 'postgres://postgres:postgres@payment-db:5432/db_payment'),
+        entities: [Payment],
         synchronize: String(configService.get('DB_SYNCHRONIZE', 'true')) === 'true',
         retryAttempts: 10,
         retryDelay: 3000,
         logging: false,
       }),
     }),
-    AuthModule,
+    PaymentModule,
   ],
 })
 export class AppModule {}

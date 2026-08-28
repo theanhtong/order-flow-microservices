@@ -9,6 +9,7 @@ import {
   ProductCreatedEvent,
   InventoryReservedEvent,
   InventoryFailedEvent,
+  PaymentFailedEvent,
 } from '@orderflow-microservices/shared';
 
 @ApiTags('inventory')
@@ -80,6 +81,11 @@ export class InventoryController {
       ).subscribe();
       this.logger.log(`Emitted inventory.failed event for Order #${data.orderId}. Reason: ${failureReason}`);
     }
+  }
+
+  @EventPattern('payment.failed')
+  async handlePaymentFailed(@Payload() data: PaymentFailedEvent) {
+    this.logger.warn(`Received payment.failed event for Order #${data.orderId}. Triggering inventory release if needed. Reason: ${data.reason}`);
   }
 
   @Get(':productId')
