@@ -16,6 +16,18 @@ services:
       retries: 15
       start_period: 15s
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   auth-db:
     image: postgres:16-alpine
     container_name: auth-db
@@ -208,10 +220,14 @@ services:
       DATABASE_URL: "postgres://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres}@product-db:5432/db_product"
       DB_SYNCHRONIZE: "true"
       RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672"
+      REDIS_HOST: "redis"
+      REDIS_PORT: 6379
     depends_on:
       product-db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   api-gateway:

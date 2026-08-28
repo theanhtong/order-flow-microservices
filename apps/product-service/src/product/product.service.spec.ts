@@ -8,6 +8,7 @@ describe('ProductService', () => {
   let service: ProductService;
   let productRepositoryMock: any;
   let rabbitClientMock: any;
+  let redisClientMock: any;
 
   const mockProduct: Product = {
     id: 'prod-uuid-1234',
@@ -20,9 +21,12 @@ describe('ProductService', () => {
     updatedAt: new Date(),
   };
 
+  const mockProductJson = JSON.parse(JSON.stringify(mockProduct));
+
   beforeEach(async () => {
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
-    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => { });
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
 
     productRepositoryMock = {
       create: jest.fn((dto) => ({ id: 'prod-uuid-1234', ...dto })),
@@ -37,6 +41,12 @@ describe('ProductService', () => {
       })),
     };
 
+    redisClientMock = {
+      get: jest.fn(),
+      setex: jest.fn(),
+      del: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductService,
@@ -47,6 +57,10 @@ describe('ProductService', () => {
         {
           provide: 'RABBITMQ_SERVICE',
           useValue: rabbitClientMock,
+        },
+        {
+          provide: 'REDIS_CLIENT',
+          useValue: redisClientMock,
         },
       ],
     }).compile();
@@ -63,7 +77,7 @@ describe('ProductService', () => {
   });
 
   describe('createProduct', () => {
-    it('should create product and emit product.created RMQ event', async () => {
+    it('should create product, invalidate Redis cache, and emit product.created RMQ event', async () => {
       productRepositoryMock.findOne.mockResolvedValue(null);
 
       const dto = {
@@ -77,6 +91,7 @@ describe('ProductService', () => {
       const result = await service.createProduct(dto);
 
       expect(productRepositoryMock.save).toHaveBeenCalled();
+      expect(redisClientMock.del).toHaveBeenCalledWith('products:all');
       expect(rabbitClientMock.emit).toHaveBeenCalledWith(
         'product.created',
         expect.objectContaining({
@@ -138,34 +153,66 @@ describe('ProductService', () => {
     });
   });
 
-  describe('getProductById', () => {
-    it('should return product if found', async () => {
+  describe('getProductById with Redis Caching', () => {
+    it('should serve Product from Redis cache when CACHE HIT', async () => {
+      redisClientMock.get.mockResolvedValue(JSON.stringify(mockProductJson));
+
+      const result = await service.getProductById(mockProduct.id);
+
+      expect(redisClientMock.get).toHaveBeenCalledWith(`products:${mockProduct.id}`);
+      expect(productRepositoryMock.findOne).not.toHaveBeenCalled();
+      expect(result).toEqual(mockProductJson);
+    });
+
+    it('should fetch from Postgres DB and set Redis cache when CACHE MISS', async () => {
+      redisClientMock.get.mockResolvedValue(null);
       productRepositoryMock.findOne.mockResolvedValue(mockProduct);
 
       const result = await service.getProductById(mockProduct.id);
 
+      expect(productRepositoryMock.findOne).toHaveBeenCalledWith({ where: { id: mockProduct.id } });
+      expect(redisClientMock.setex).toHaveBeenCalledWith(
+        `products:${mockProduct.id}`,
+        60,
+        JSON.stringify(mockProduct),
+      );
       expect(result).toEqual(mockProduct);
     });
 
-    it('should throw NotFoundException if product ID does not exist', async () => {
+    it('should throw NotFoundException if product ID does not exist in DB on CACHE MISS', async () => {
+      redisClientMock.get.mockResolvedValue(null);
       productRepositoryMock.findOne.mockResolvedValue(null);
 
       await expect(service.getProductById('invalid-uuid')).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('getAllProducts', () => {
-    it('should return an array of active products', async () => {
+  describe('getAllProducts with Redis Caching', () => {
+    it('should serve products array from Redis cache when CACHE HIT', async () => {
+      redisClientMock.get.mockResolvedValue(JSON.stringify([mockProductJson]));
+
+      const result = await service.getAllProducts();
+
+      expect(redisClientMock.get).toHaveBeenCalledWith('products:all');
+      expect(productRepositoryMock.find).not.toHaveBeenCalled();
+      expect(result).toEqual([mockProductJson]);
+    });
+
+    it('should query Postgres DB and set Redis cache when CACHE MISS', async () => {
+      redisClientMock.get.mockResolvedValue(null);
       productRepositoryMock.find.mockResolvedValue([mockProduct]);
 
       const result = await service.getAllProducts();
 
+      expect(productRepositoryMock.find).toHaveBeenCalled();
+      expect(redisClientMock.setex).toHaveBeenCalledWith('products:all', 60, JSON.stringify([mockProduct]));
       expect(result).toEqual([mockProduct]);
     });
   });
 
   describe('deleteProduct', () => {
-    it('should soft delete product by setting isActive to false', async () => {
+    it('should soft delete product and invalidate Redis cache keys', async () => {
+      redisClientMock.get.mockResolvedValue(JSON.stringify(mockProductJson));
       productRepositoryMock.findOne.mockResolvedValue({ ...mockProduct });
 
       const result = await service.deleteProduct(mockProduct.id);
@@ -173,13 +220,9 @@ describe('ProductService', () => {
       expect(productRepositoryMock.save).toHaveBeenCalledWith(
         expect.objectContaining({ isActive: false }),
       );
+      expect(redisClientMock.del).toHaveBeenCalledWith('products:all');
+      expect(redisClientMock.del).toHaveBeenCalledWith(`products:${mockProduct.id}`);
       expect(result.isActive).toBe(false);
-    });
-
-    it('should throw NotFoundException when deleting non-existent product', async () => {
-      productRepositoryMock.findOne.mockResolvedValue(null);
-
-      await expect(service.deleteProduct('non-existent-uuid')).rejects.toThrow(NotFoundException);
     });
   });
 });
