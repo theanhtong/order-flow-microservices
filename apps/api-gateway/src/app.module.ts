@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 
 @Module({
   imports: [
@@ -14,6 +15,8 @@ import { APP_GUARD } from '@nestjs/core';
         limit: 100,
       },
     ]),
+    HealthModule,
+    MetricsModule,
   ],
   providers: [
     {

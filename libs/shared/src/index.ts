@@ -5,3 +5,7 @@ export * from './events/inventory-failed.event';
 export * from './events/payment-completed.event';
 export * from './events/payment-failed.event';
 export * from './auth.types';
+export * from './metrics/metrics.controller';
+export * from './metrics/metrics.module';
+export * from './health/health.controller';
+export * from './health/health.module';

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { OrderModule } from './order/order.module';
 import { Order } from './order/entities/order.entity';
 import { OrderItem } from './order/entities/order-item.entity';
@@ -29,6 +30,8 @@ import { OutboxMessage } from './outbox/outbox-message.entity';
       }),
     }),
     OrderModule,
+    HealthModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}

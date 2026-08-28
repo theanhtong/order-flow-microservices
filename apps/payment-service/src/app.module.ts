@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { Payment } from './payment/entities/payment.entity';
 import { PaymentModule } from './payment/payment.module';
 
@@ -24,6 +25,8 @@ import { PaymentModule } from './payment/payment.module';
       }),
     }),
     PaymentModule,
+    HealthModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}

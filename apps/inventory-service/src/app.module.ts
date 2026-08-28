@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { InventoryModule } from './inventory/inventory.module';
 import { Inventory } from './inventory/entities/inventory.entity';
 
@@ -25,6 +26,8 @@ import { Inventory } from './inventory/entities/inventory.entity';
       }),
     }),
     InventoryModule,
+    HealthModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}

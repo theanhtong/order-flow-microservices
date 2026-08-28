@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { User } from './auth/entities/user.entity';
 import { RefreshToken } from './auth/entities/refresh-token.entity';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +26,8 @@ import { AuthModule } from './auth/auth.module';
       }),
     }),
     AuthModule,
+    HealthModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}

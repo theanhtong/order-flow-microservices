@@ -271,6 +271,29 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api-gateway
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana
+    restart: always
+    ports:
+      - "3006:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
 volumes:
   auth_db_data:
   payment_db_data:

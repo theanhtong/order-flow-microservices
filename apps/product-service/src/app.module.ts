@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { ProductModule } from './product/product.module';
 import { Product } from './product/entities/product.entity';
 
@@ -25,6 +26,8 @@ import { Product } from './product/entities/product.entity';
       }),
     }),
     ProductModule,
+    HealthModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}
