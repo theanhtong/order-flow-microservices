@@ -9,7 +9,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiHeader } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { MergeCartDto } from './dto/merge-cart.dto';
