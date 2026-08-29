@@ -23,6 +23,11 @@ export class CreateProductDto {
   @IsOptional()
   quantity?: number;
 
+  @ApiProperty({ description: 'Product category', example: 'Laptops', required: false })
+  @IsString()
+  @IsOptional()
+  category?: string;
+
   @ApiProperty({ description: 'Product description', example: 'Flagship smartphone', required: false })
   @IsString()
   @IsOptional()

@@ -16,6 +16,13 @@ export class ProductController {
     return await this.productService.createProduct(dto);
   }
 
+  @Post('seed')
+  @ApiOperation({ summary: 'Seed database with randomized products' })
+  @ApiResponse({ status: 201, description: 'Products seeded successfully', type: [Product] })
+  async seedProducts(@Body('count') count?: number): Promise<Product[]> {
+    return await this.productService.seedRandomProducts(count || 20);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get product details by UUID' })
   @ApiParam({ name: 'id', description: 'Product UUID' })

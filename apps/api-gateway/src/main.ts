@@ -3,14 +3,20 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule } from '@nestjs/swagger';
 import * as proxy from 'express-http-proxy';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { createJwtGatewayMiddleware } from './middleware/jwt-auth.middleware';
+import { createGuestSessionMiddleware } from './middleware/guest-session.middleware';
 
 async function bootstrap() {
   const logger = new Logger('APIGateway');
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+  app.use(cookieParser());
 
   const configService = app.get(ConfigService);
   const jwtSecret = configService.get<string>('JWT_SECRET', 'super_secret_jwt_key_2026');
@@ -20,6 +26,7 @@ async function bootstrap() {
   const inventoryServiceUrl = configService.get<string>('INVENTORY_SERVICE_URL', 'http://localhost:3002');
   const productServiceUrl = configService.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3003');
   const paymentServiceUrl = configService.get<string>('PAYMENT_SERVICE_URL', 'http://localhost:3005');
+  const cartServiceUrl = configService.get<string>('CART_SERVICE_URL', 'http://localhost:3007');
 
   const createProxyErrorHandler = (serviceName: string, serviceUrl: string) => {
     return (err: any, res: any) => {
@@ -32,8 +39,10 @@ async function bootstrap() {
     };
   };
 
-  // Attach JWT Security & RBAC Middleware
+  // Attach JWT Security & Guest Session Middleware
+  app.use(cookieParser());
   app.use(createJwtGatewayMiddleware(jwtSecret));
+  app.use(createGuestSessionMiddleware());
 
   // Reverse Proxy Routing to Downstream Microservices
   app.use(
@@ -73,6 +82,14 @@ async function bootstrap() {
     proxy(paymentServiceUrl, {
       proxyReqPathResolver: (req) => `/api/v1/payments${req.url}`,
       proxyErrorHandler: createProxyErrorHandler('Payment Service', paymentServiceUrl),
+    }),
+  );
+
+  app.use(
+    '/api/v1/cart',
+    proxy(cartServiceUrl, {
+      proxyReqPathResolver: (req) => `/api/v1/cart${req.url}`,
+      proxyErrorHandler: createProxyErrorHandler('Cart Service', cartServiceUrl),
     }),
   );
 
@@ -117,6 +134,14 @@ async function bootstrap() {
     }),
   );
 
+  app.use(
+    '/api/docs/swagger-cart.json',
+    proxy(cartServiceUrl, {
+      proxyReqPathResolver: () => '/api/docs-json',
+      proxyErrorHandler: createProxyErrorHandler('Cart Service Docs', cartServiceUrl),
+    }),
+  );
+
   SwaggerModule.setup('api/docs', app, null, {
     explorer: true,
     swaggerOptions: {
@@ -126,6 +151,7 @@ async function bootstrap() {
         { url: '/api/docs/swagger-inventory.json', name: 'Inventory Service API' },
         { url: '/api/docs/swagger-orders.json', name: 'Order Service API' },
         { url: '/api/docs/swagger-payment.json', name: 'Payment Service API' },
+        { url: '/api/docs/swagger-cart.json', name: 'Cart Service API' },
       ],
     },
   });
@@ -140,6 +166,7 @@ async function bootstrap() {
   logger.log(`Routing /api/v1/inventory -> ${inventoryServiceUrl}`);
   logger.log(`Routing /api/v1/orders -> ${orderServiceUrl}`);
   logger.log(`Routing /api/v1/payments -> ${paymentServiceUrl}`);
+  logger.log(`Routing /api/v1/cart -> ${cartServiceUrl}`);
 }
 
 bootstrap();

@@ -1,5 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsBoolean } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsBoolean, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '@orderflow-microservices/shared';
 
 export class RegisterDto {
@@ -66,4 +66,58 @@ export class UpdateStatusDto {
   @ApiProperty({ description: 'Active status', example: false })
   @IsBoolean()
   isActive: boolean;
+}
+
+export class CreateAddressDto {
+  @ApiProperty({ description: 'Recipient Full Name', example: 'John Doe' })
+  @IsString()
+  @IsNotEmpty()
+  recipientName: string;
+
+  @ApiProperty({ description: 'Contact Phone Number', example: '0901234567' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ description: 'Full Delivery Address', example: '123 High Tech Street, Ward 1, District 1, Ho Chi Minh City' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiPropertyOptional({ description: 'Delivery Instruction or Note', example: 'Call before delivery' })
+  @IsString()
+  @IsOptional()
+  note?: string;
+
+  @ApiPropertyOptional({ description: 'Set as default address', example: true })
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+}
+
+export class UpdateAddressDto {
+  @ApiPropertyOptional({ description: 'Recipient Full Name', example: 'John Doe' })
+  @IsString()
+  @IsOptional()
+  recipientName?: string;
+
+  @ApiPropertyOptional({ description: 'Contact Phone Number', example: '0901234567' })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Full Delivery Address', example: '123 High Tech Street, Ward 1, District 1, Ho Chi Minh City' })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiPropertyOptional({ description: 'Delivery Instruction or Note', example: 'Call before delivery' })
+  @IsString()
+  @IsOptional()
+  note?: string;
+
+  @ApiPropertyOptional({ description: 'Set as default address', example: true })
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
 }

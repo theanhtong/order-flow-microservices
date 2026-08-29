@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@orderflow-microservices/shared';
+import { Address } from './address.entity';
 
 @Entity('users')
 export class User {
@@ -30,6 +31,9 @@ export class User {
   @ApiProperty({ description: 'Account status', example: true })
   @Column({ default: true })
   isActive: boolean;
+
+  @OneToMany(() => Address, (address) => address.user)
+  addresses?: Address[];
 
   @CreateDateColumn()
   createdAt: Date;

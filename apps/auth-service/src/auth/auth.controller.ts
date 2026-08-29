@@ -1,18 +1,22 @@
+import { Response, Request } from 'express';
 import {
   Controller,
   Post,
   Get,
+  Put,
   Patch,
   Delete,
   Body,
   Param,
   Headers,
+  Res,
+  Req,
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, CreateUserAdminDto, UpdateStatusDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, CreateUserAdminDto, UpdateStatusDto, CreateAddressDto, UpdateAddressDto } from './dto';
 import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 
 @ApiTags('auth')
@@ -20,32 +24,74 @@ import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private setRefreshTokenCookie(res: Response, token: string) {
+    res.cookie('refreshToken', token, {
+      httpOnly: true,
+      secure: false, // process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+  }
+
   @Post('register')
   @ApiOperation({ summary: 'Register a new customer account' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
-  async register(@Body() dto: RegisterDto) {
-    return await this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    if (result.refreshToken) {
+      this.setRefreshTokenCookie(res, result.refreshToken);
+    }
+    return result;
   }
 
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful with accessToken & refreshToken' })
-  async login(@Body() dto: LoginDto) {
-    return await this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    if (result.refreshToken) {
+      this.setRefreshTokenCookie(res, result.refreshToken);
+    }
+    return result;
   }
 
   @Post('refresh')
-  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiOperation({ summary: 'Refresh access token using refresh token cookie or body' })
   @ApiResponse({ status: 200, description: 'New access token generated' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return await this.authService.refreshTokens(dto.refreshToken);
+  async refresh(
+    @Req() req: Request,
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshTokenStr = req.cookies?.refreshToken || dto?.refreshToken;
+    if (!refreshTokenStr) {
+      throw new UnauthorizedException('Missing refresh token');
+    }
+    const newTokens = await this.authService.refreshTokens(refreshTokenStr);
+    if (newTokens.refreshToken) {
+      this.setRefreshTokenCookie(res, newTokens.refreshToken);
+    }
+    return newTokens;
   }
 
   @Post('logout')
   @ApiOperation({ summary: 'Logout current device' })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
-  async logout(@Body() dto: RefreshTokenDto) {
-    return await this.authService.logout(dto.refreshToken);
+  async logout(
+    @Req() req: Request,
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshTokenStr = req.cookies?.refreshToken || dto?.refreshToken;
+    res.clearCookie('refreshToken', { path: '/' });
+    return await this.authService.logout(refreshTokenStr);
   }
 
   @Post('logout-all')
@@ -61,11 +107,85 @@ export class AuthController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiHeader({ name: 'x-user-id', required: true, description: 'User ID passed from Gateway' })
-  async getProfile(@Headers('x-user-id') userId: string) {
-    if (!userId) {
+  async getProfile(
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
       throw new UnauthorizedException('Missing user identity');
     }
-    return await this.authService.getUserProfile(userId);
+    return await this.authService.getUserProfile(identifier);
+  }
+
+  @Get('addresses')
+  @ApiOperation({ summary: 'Get user addresses' })
+  async getAddresses(
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.getAddresses(identifier);
+  }
+
+  @Post('addresses')
+  @ApiOperation({ summary: 'Create new user address' })
+  async createAddress(
+    @Body() dto: CreateAddressDto,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.createAddress(identifier, dto);
+  }
+
+  @Put('addresses/:id')
+  @ApiOperation({ summary: 'Update user address' })
+  async updateAddress(
+    @Param('id') addressId: string,
+    @Body() dto: UpdateAddressDto,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.updateAddress(identifier, addressId, dto);
+  }
+
+  @Delete('addresses/:id')
+  @ApiOperation({ summary: 'Delete user address' })
+  async deleteAddress(
+    @Param('id') addressId: string,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.deleteAddress(identifier, addressId);
+  }
+
+  @Patch('addresses/:id/default')
+  @ApiOperation({ summary: 'Set address as default' })
+  async setDefaultAddress(
+    @Param('id') addressId: string,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.setDefaultAddress(identifier, addressId);
   }
 
   @Post('admin/users')

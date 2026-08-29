@@ -62,8 +62,9 @@ describe('AuthController', () => {
         password: 'Password123',
         fullName: 'Test User',
       };
+      const mockRes = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-      const result = await controller.register(dto);
+      const result = await controller.register(dto, mockRes);
 
       expect(authServiceMock.register).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockAuthResponse);
@@ -76,8 +77,9 @@ describe('AuthController', () => {
         email: 'test@example.com',
         password: 'Password123',
       };
+      const mockRes = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-      const result = await controller.login(dto);
+      const result = await controller.login(dto, mockRes);
 
       expect(authServiceMock.login).toHaveBeenCalledWith(dto);
       expect(result).toEqual(mockAuthResponse);
