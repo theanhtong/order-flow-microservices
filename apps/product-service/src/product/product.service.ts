@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, Inject, Logger, NotFoundException, BadRequestException, Optional, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
@@ -8,7 +8,7 @@ import { CreateProductDto, UpdateProductDto } from './dto';
 import { ProductCreatedEvent } from '@orderflow-microservices/shared';
 
 @Injectable()
-export class ProductService {
+export class ProductService implements OnModuleInit {
   private readonly logger = new Logger('ProductService');
   private readonly CACHE_TTL_SECONDS = 60;
 
@@ -20,7 +20,66 @@ export class ProductService {
     @Optional()
     @Inject('REDIS_CLIENT')
     private readonly redisClient?: Redis,
-  ) {}
+  ) { }
+
+  async onModuleInit() {
+    try {
+      const count = await this.productRepository.count();
+      if (count === 0) {
+        this.logger.log('Database is empty. Auto-seeding randomized products into product-db...');
+        await this.seedRandomProducts(25);
+      }
+    } catch (err) {
+      this.logger.warn(`Auto-seeding check skipped/failed: ${err.message}`);
+    }
+  }
+
+  async seedRandomProducts(count: number = 20): Promise<Product[]> {
+    const categories = ['Laptops', 'Phones', 'Tablets', 'Wearables', 'Audio', 'Accessories'];
+
+    const brandNames = {
+      Laptops: ['MacBook Pro', 'MacBook Air', 'Mac Studio', 'Dell XPS', 'ThinkPad X1', 'Asus ROG', 'Surface Laptop'],
+      Phones: ['iPhone 15 Pro', 'Galaxy S24 Ultra', 'Pixel 8 Pro', 'Xiaomi 14', 'OnePlus 12', 'iPhone 15'],
+      Tablets: ['iPad Pro M4', 'iPad Air M2', 'Galaxy Tab S9', 'iPad Mini 6', 'Surface Pro 10'],
+      Wearables: ['Apple Watch Ultra 2', 'Galaxy Watch 6', 'Garmin Fenix 7', 'Apple Watch Series 9'],
+      Audio: ['AirPods Max', 'AirPods Pro 2', 'Sony WH-1000XM5', 'Bose QuietComfort', 'HomePod Mini'],
+      Accessories: ['Pro Display XDR', 'Magic Keyboard', 'MagSafe Charger', 'Studio Display', 'Thunderbolt Dock'],
+    };
+
+    const variants = ['16"', '14"', '256GB', '512GB', '1TB', 'Titanium', 'Space Black', 'OLED 13"', 'Wireless', 'Type-C'];
+
+    const seededProducts: Product[] = [];
+
+    for (let i = 1; i <= count; i++) {
+      const category = categories[Math.floor(Math.random() * categories.length)];
+      const namesList = brandNames[category];
+      const baseName = namesList[Math.floor(Math.random() * namesList.length)];
+      const variant = variants[Math.floor(Math.random() * variants.length)];
+
+      const name = `${baseName} ${variant}`;
+      const sku = `SKU-${category.substring(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const price = parseFloat((Math.floor(Math.random() * 3500) + 49.99).toFixed(2));
+      const description = `High-performance ${category.toLowerCase()} device with premium ${variant} finish.`;
+
+      const existing = await this.productRepository.findOne({ where: { sku } });
+      if (!existing) {
+        const product = this.productRepository.create({
+          name,
+          sku,
+          price,
+          category,
+          description,
+          isActive: true,
+        });
+        const saved = await this.productRepository.save(product);
+        seededProducts.push(saved);
+      }
+    }
+
+    await this.invalidateProductCache();
+    this.logger.log(`Successfully seeded ${seededProducts.length} randomized products into product-db`);
+    return seededProducts;
+  }
 
   private async invalidateProductCache(productId?: string) {
     if (!this.redisClient) return;

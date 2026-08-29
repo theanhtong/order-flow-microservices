@@ -1,3 +1,4 @@
+import { Response, Request } from 'express';
 import {
   Controller,
   Post,
@@ -7,6 +8,8 @@ import {
   Body,
   Param,
   Headers,
+  Res,
+  Req,
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -20,32 +23,74 @@ import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private setRefreshTokenCookie(res: Response, token: string) {
+    res.cookie('refreshToken', token, {
+      httpOnly: true,
+      secure: false, // process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+  }
+
   @Post('register')
   @ApiOperation({ summary: 'Register a new customer account' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
-  async register(@Body() dto: RegisterDto) {
-    return await this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    if (result.refreshToken) {
+      this.setRefreshTokenCookie(res, result.refreshToken);
+    }
+    return result;
   }
 
   @Post('login')
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful with accessToken & refreshToken' })
-  async login(@Body() dto: LoginDto) {
-    return await this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    if (result.refreshToken) {
+      this.setRefreshTokenCookie(res, result.refreshToken);
+    }
+    return result;
   }
 
   @Post('refresh')
-  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiOperation({ summary: 'Refresh access token using refresh token cookie or body' })
   @ApiResponse({ status: 200, description: 'New access token generated' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return await this.authService.refreshTokens(dto.refreshToken);
+  async refresh(
+    @Req() req: Request,
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshTokenStr = req.cookies?.refreshToken || dto?.refreshToken;
+    if (!refreshTokenStr) {
+      throw new UnauthorizedException('Missing refresh token');
+    }
+    const newTokens = await this.authService.refreshTokens(refreshTokenStr);
+    if (newTokens.refreshToken) {
+      this.setRefreshTokenCookie(res, newTokens.refreshToken);
+    }
+    return newTokens;
   }
 
   @Post('logout')
   @ApiOperation({ summary: 'Logout current device' })
   @ApiResponse({ status: 200, description: 'Logged out successfully' })
-  async logout(@Body() dto: RefreshTokenDto) {
-    return await this.authService.logout(dto.refreshToken);
+  async logout(
+    @Req() req: Request,
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshTokenStr = req.cookies?.refreshToken || dto?.refreshToken;
+    res.clearCookie('refreshToken', { path: '/' });
+    return await this.authService.logout(refreshTokenStr);
   }
 
   @Post('logout-all')

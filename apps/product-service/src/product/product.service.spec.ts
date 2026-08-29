@@ -15,6 +15,7 @@ describe('ProductService', () => {
     name: 'MacBook Pro M3',
     sku: 'MBP-M3-2026',
     price: 2499.99,
+    category: 'Laptops',
     description: 'High performance laptop',
     isActive: true,
     createdAt: new Date(),
