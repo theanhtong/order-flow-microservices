@@ -14,7 +14,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { RegisterDto, LoginDto, CreateUserAdminDto, UpdateStatusDto } from './dto';
+import { Address } from './entities/address.entity';
+import { RegisterDto, LoginDto, CreateUserAdminDto, UpdateStatusDto, CreateAddressDto, UpdateAddressDto } from './dto';
 import { UserRole, ROLE_LEVELS, UserJwtPayload } from '@orderflow-microservices/shared';
 
 @Injectable()
@@ -26,6 +27,8 @@ export class AuthService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(Address)
+    private readonly addressRepository: Repository<Address>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -140,14 +143,6 @@ export class AuthService implements OnModuleInit {
   async logoutAll(userId: string) {
     await this.refreshTokenRepository.update({ userId, isRevoked: false }, { isRevoked: true });
     return { message: 'Logged out from all devices successfully' };
-  }
-
-  async getUserProfile(userId: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return this.sanitizeUser(user);
   }
 
   async adminCreateUser(operatorUser: UserJwtPayload, dto: CreateUserAdminDto) {
@@ -279,6 +274,134 @@ export class AuthService implements OnModuleInit {
       accessToken,
       refreshToken: refreshTokenStr,
     };
+  }
+
+  async findUserByIdOrEmail(identifier: string) {
+    let user = await this.userRepository.findOne({
+      where: { id: identifier },
+      relations: ['addresses'],
+    });
+    if (!user) {
+      user = await this.userRepository.findOne({
+        where: { email: identifier },
+        relations: ['addresses'],
+      });
+    }
+    return user;
+  }
+
+  async getUserProfile(userIdOrEmail: string) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+    return this.sanitizeUser(user);
+  }
+
+  async getAddresses(userIdOrEmail: string) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+    return this.addressRepository.find({
+      where: { userId: user.id },
+      order: { isDefault: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
+  async createAddress(userIdOrEmail: string, dto: CreateAddressDto) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+
+    const existingCount = await this.addressRepository.count({ where: { userId: user.id } });
+    const isFirstAddress = existingCount === 0;
+    const shouldBeDefault = dto.isDefault ?? isFirstAddress;
+
+    if (shouldBeDefault && !isFirstAddress) {
+      await this.addressRepository.update({ userId: user.id }, { isDefault: false });
+    }
+
+    const address = this.addressRepository.create({
+      ...dto,
+      userId: user.id,
+      isDefault: shouldBeDefault,
+    });
+
+    return this.addressRepository.save(address);
+  }
+
+  async updateAddress(userIdOrEmail: string, addressId: string, dto: UpdateAddressDto) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, userId: user.id },
+    });
+
+    if (!address) {
+      throw new NotFoundException(`Address "${addressId}" not found for this user`);
+    }
+
+    if (dto.isDefault) {
+      await this.addressRepository.update({ userId: user.id }, { isDefault: false });
+    }
+
+    Object.assign(address, dto);
+    return this.addressRepository.save(address);
+  }
+
+  async deleteAddress(userIdOrEmail: string, addressId: string) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, userId: user.id },
+    });
+
+    if (!address) {
+      throw new NotFoundException(`Address "${addressId}" not found`);
+    }
+
+    const wasDefault = address.isDefault;
+    await this.addressRepository.remove(address);
+
+    if (wasDefault) {
+      const remaining = await this.addressRepository.findOne({
+        where: { userId: user.id },
+        order: { createdAt: 'DESC' },
+      });
+      if (remaining) {
+        remaining.isDefault = true;
+        await this.addressRepository.save(remaining);
+      }
+    }
+
+    return { message: 'Address deleted successfully' };
+  }
+
+  async setDefaultAddress(userIdOrEmail: string, addressId: string) {
+    const user = await this.findUserByIdOrEmail(userIdOrEmail);
+    if (!user) {
+      throw new NotFoundException(`User "${userIdOrEmail}" not found`);
+    }
+
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, userId: user.id },
+    });
+
+    if (!address) {
+      throw new NotFoundException(`Address "${addressId}" not found`);
+    }
+
+    await this.addressRepository.update({ userId: user.id }, { isDefault: false });
+    address.isDefault = true;
+    return this.addressRepository.save(address);
   }
 
   private sanitizeUser(user: User) {

@@ -3,6 +3,7 @@ import {
   Controller,
   Post,
   Get,
+  Put,
   Patch,
   Delete,
   Body,
@@ -15,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, CreateUserAdminDto, UpdateStatusDto } from './dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, CreateUserAdminDto, UpdateStatusDto, CreateAddressDto, UpdateAddressDto } from './dto';
 import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 
 @ApiTags('auth')
@@ -106,11 +107,85 @@ export class AuthController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiHeader({ name: 'x-user-id', required: true, description: 'User ID passed from Gateway' })
-  async getProfile(@Headers('x-user-id') userId: string) {
-    if (!userId) {
+  async getProfile(
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
       throw new UnauthorizedException('Missing user identity');
     }
-    return await this.authService.getUserProfile(userId);
+    return await this.authService.getUserProfile(identifier);
+  }
+
+  @Get('addresses')
+  @ApiOperation({ summary: 'Get user addresses' })
+  async getAddresses(
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.getAddresses(identifier);
+  }
+
+  @Post('addresses')
+  @ApiOperation({ summary: 'Create new user address' })
+  async createAddress(
+    @Body() dto: CreateAddressDto,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.createAddress(identifier, dto);
+  }
+
+  @Put('addresses/:id')
+  @ApiOperation({ summary: 'Update user address' })
+  async updateAddress(
+    @Param('id') addressId: string,
+    @Body() dto: UpdateAddressDto,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.updateAddress(identifier, addressId, dto);
+  }
+
+  @Delete('addresses/:id')
+  @ApiOperation({ summary: 'Delete user address' })
+  async deleteAddress(
+    @Param('id') addressId: string,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.deleteAddress(identifier, addressId);
+  }
+
+  @Patch('addresses/:id/default')
+  @ApiOperation({ summary: 'Set address as default' })
+  async setDefaultAddress(
+    @Param('id') addressId: string,
+    @Headers('x-user-id') userIdHeader?: string,
+    @Headers('x-user-email') userEmailHeader?: string,
+  ) {
+    const identifier = userIdHeader || userEmailHeader;
+    if (!identifier) {
+      throw new UnauthorizedException('Missing user identity');
+    }
+    return await this.authService.setDefaultAddress(identifier, addressId);
   }
 
   @Post('admin/users')
