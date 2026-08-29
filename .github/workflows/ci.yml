@@ -43,6 +43,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies & Build Services
+        run: |
+          npm ci
+          npx nest build api-gateway
+          npx nest build auth-service
+          npx nest build product-service
+          npx nest build inventory-service
+          npx nest build order-service
+          npx nest build payment-service
+          npx nest build notification-service
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
