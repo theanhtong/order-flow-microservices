@@ -19,6 +19,10 @@ export class Product {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
+  @ApiProperty({ example: 'Laptops', required: false })
+  @Column({ nullable: true, default: 'Laptops' })
+  category: string;
+
   @ApiProperty({ example: 'Flagship smartphone with titanium body', required: false })
   @Column({ type: 'text', nullable: true })
   description: string;

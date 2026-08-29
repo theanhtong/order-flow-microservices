@@ -17,6 +17,7 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
+    "jsx": "react-jsx",
     "paths": {
       "@orderflow-microservices/shared": [
         "libs/shared/src"
@@ -33,6 +34,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "apps/web-dashboard"
   ]
 }

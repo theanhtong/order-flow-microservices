@@ -10,7 +10,10 @@ async function bootstrap() {
   const logger = new Logger('APIGateway');
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
 
   const configService = app.get(ConfigService);
   const jwtSecret = configService.get<string>('JWT_SECRET', 'super_secret_jwt_key_2026');
