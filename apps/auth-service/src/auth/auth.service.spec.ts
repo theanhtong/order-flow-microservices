@@ -12,12 +12,14 @@ import * as bcryptjs from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { Address } from './entities/address.entity';
 import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 
 describe('AuthService', () => {
   let service: AuthService;
   let userRepositoryMock: any;
   let refreshTokenRepositoryMock: any;
+  let addressRepositoryMock: any;
   let jwtServiceMock: any;
   let queryBuilderMock: any;
 
@@ -80,6 +82,16 @@ describe('AuthService', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    addressRepositoryMock = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn((dto) => ({ id: 'address-uuid-1', ...dto })),
+      save: jest.fn((a) => Promise.resolve(a)),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      remove: jest.fn((a) => Promise.resolve(a)),
+    };
+
     jwtServiceMock = {
       sign: jest.fn().mockReturnValue('mock-jwt-token'),
       signAsync: jest.fn().mockResolvedValue('mock-jwt-token'),
@@ -95,6 +107,10 @@ describe('AuthService', () => {
         {
           provide: getRepositoryToken(RefreshToken),
           useValue: refreshTokenRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(Address),
+          useValue: addressRepositoryMock,
         },
         {
           provide: JwtService,
