@@ -260,6 +260,7 @@ services:
       INVENTORY_SERVICE_URL: "http://inventory-service:3002"
       PRODUCT_SERVICE_URL: "http://product-service:3003"
       PAYMENT_SERVICE_URL: "http://payment-service:3005"
+      CART_SERVICE_URL: "http://cart-service:3007"
       JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
     depends_on:
       - auth-service
@@ -267,6 +268,26 @@ services:
       - inventory-service
       - product-service
       - payment-service
+      - cart-service
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: cart-service
+    container_name: cart-service
+    restart: always
+    ports:
+      - "${CART_SERVICE_PORT:-3007}:3007"
+    environment:
+      NODE_ENV: production
+      CART_SERVICE_PORT: 3007
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
 
   notification-service:
     build:
