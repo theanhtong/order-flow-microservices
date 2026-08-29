@@ -22,7 +22,7 @@ async function bootstrap() {
   const paymentServiceUrl = configService.get<string>('PAYMENT_SERVICE_URL', 'http://localhost:3005');
 
   const createProxyErrorHandler = (serviceName: string, serviceUrl: string) => {
-    return (err: any, res: any, next: any) => {
+    return (err: any, res: any) => {
       logger.warn(`Upstream service "${serviceName}" at ${serviceUrl} is unreachable: ${err.message}`);
       res.status(503).json({
         statusCode: 503,

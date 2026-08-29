@@ -93,7 +93,7 @@ describe('InventoryService', () => {
       const currentStock = { ...mockInventory, quantity: 50, reservedQuantity: 2 };
       inventoryRepositoryMock.findOne.mockResolvedValue(currentStock);
 
-      const result = await service.reserveStock(mockInventory.productId, { quantity: 5 });
+      await service.reserveStock(mockInventory.productId, { quantity: 5 });
 
       expect(currentStock.reservedQuantity).toBe(7);
       expect(inventoryRepositoryMock.save).toHaveBeenCalledWith(currentStock);

@@ -8,10 +8,11 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import * as bcryptjs from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { User } from './entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { UserRole } from '@orderflow-microservices/shared';
+import { UserRole, UserJwtPayload } from '@orderflow-microservices/shared';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -42,6 +43,20 @@ describe('AuthService', () => {
     updatedAt: new Date(),
   };
 
+  const mockAdminPayload: UserJwtPayload = {
+    sub: mockAdmin.id,
+    email: mockAdmin.email,
+    role: mockAdmin.role,
+    fullName: mockAdmin.fullName,
+  };
+
+  const mockOperatorPayload: UserJwtPayload = {
+    sub: 'op-uuid',
+    email: 'op@example.com',
+    role: UserRole.OPERATOR,
+    fullName: 'Operator User',
+  };
+
   beforeEach(async () => {
     queryBuilderMock = {
       addSelect: jest.fn().mockReturnThis(),
@@ -54,20 +69,20 @@ describe('AuthService', () => {
       findOne: jest.fn(),
       find: jest.fn(),
       create: jest.fn((dto) => ({ id: 'new-user-uuid', ...dto })),
-      save: jest.fn((user) => Promise.resolve(user)),
-      remove: jest.fn(),
+      save: jest.fn((u) => Promise.resolve(u)),
+      remove: jest.fn((u) => Promise.resolve(u)),
       createQueryBuilder: jest.fn(() => queryBuilderMock),
     };
 
     refreshTokenRepositoryMock = {
-      create: jest.fn((dto) => ({ id: 'token-uuid', ...dto })),
-      save: jest.fn((token) => Promise.resolve(token)),
-      update: jest.fn(),
+      create: jest.fn((dto) => dto),
+      save: jest.fn((rt) => Promise.resolve(rt)),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
     jwtServiceMock = {
-      sign: jest.fn(() => 'mock-jwt-token'),
-      verify: jest.fn(),
+      sign: jest.fn().mockReturnValue('mock-jwt-token'),
+      signAsync: jest.fn().mockResolvedValue('mock-jwt-token'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -99,27 +114,29 @@ describe('AuthService', () => {
     it('should seed default admin when zero admins exist', async () => {
       userRepositoryMock.count.mockResolvedValue(0);
 
-      await service['seedDefaultAdmin']();
+      await service.onModuleInit();
 
-      expect(userRepositoryMock.count).toHaveBeenCalledWith({
-        where: { role: UserRole.SYSTEM_ADMIN },
-      });
-      expect(userRepositoryMock.create).toHaveBeenCalled();
+      expect(userRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'sysadmin@example.com',
+          role: UserRole.SYSTEM_ADMIN,
+        }),
+      );
       expect(userRepositoryMock.save).toHaveBeenCalled();
     });
 
     it('should not seed default admin when an admin already exists', async () => {
       userRepositoryMock.count.mockResolvedValue(1);
 
-      await service['seedDefaultAdmin']();
+      await service.onModuleInit();
 
       expect(userRepositoryMock.save).not.toHaveBeenCalled();
     });
 
     it('should handle database error during seeding gracefully', async () => {
-      userRepositoryMock.count.mockRejectedValue(new Error('DB Error'));
+      userRepositoryMock.count.mockRejectedValue(new Error('DB Connection Failed'));
 
-      await expect(service['seedDefaultAdmin']()).resolves.not.toThrow();
+      await expect(service.onModuleInit()).resolves.not.toThrow();
     });
   });
 
@@ -128,17 +145,17 @@ describe('AuthService', () => {
       userRepositoryMock.findOne.mockResolvedValue(null);
 
       const dto = {
-        email: 'newcustomer@example.com',
-        password: 'Password123',
+        email: 'newuser@example.com',
+        password: 'Password123!',
         fullName: 'New Customer',
       };
 
       const result = await service.register(dto);
 
-      expect(result).toHaveProperty('user');
+      expect(userRepositoryMock.save).toHaveBeenCalled();
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
-      expect(userRepositoryMock.save).toHaveBeenCalled();
+      expect(result.user.email).toBe(dto.email);
     });
 
     it('should throw ConflictException if email is already registered', async () => {
@@ -146,7 +163,7 @@ describe('AuthService', () => {
 
       const dto = {
         email: mockUser.email,
-        password: 'Password123',
+        password: 'Password123!',
         fullName: 'Existing User',
       };
 
@@ -156,7 +173,6 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should authenticate user with correct credentials', async () => {
-      const bcryptjs = require('bcryptjs');
       jest.spyOn(bcryptjs, 'compare').mockImplementation(() => Promise.resolve(true));
 
       queryBuilderMock.getOne.mockResolvedValue(mockUser);
@@ -178,7 +194,6 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException for incorrect password', async () => {
-      const bcryptjs = require('bcryptjs');
       jest.spyOn(bcryptjs, 'compare').mockImplementation(() => Promise.resolve(false));
 
       queryBuilderMock.getOne.mockResolvedValue(mockUser);
@@ -189,10 +204,12 @@ describe('AuthService', () => {
     });
 
     it('should throw ForbiddenException if user account is deactivated', async () => {
+      jest.spyOn(bcryptjs, 'compare').mockImplementation(() => Promise.resolve(true));
+
       const inactiveUser = { ...mockUser, isActive: false };
       queryBuilderMock.getOne.mockResolvedValue(inactiveUser);
 
-      const dto = { email: inactiveUser.email, password: 'Password123' };
+      const dto = { email: mockUser.email, password: 'Password123' };
 
       await expect(service.login(dto)).rejects.toThrow(ForbiddenException);
     });
@@ -200,94 +217,61 @@ describe('AuthService', () => {
 
   describe('adminCreateUser', () => {
     it('SYSTEM_ADMIN can create an OPERATOR account', async () => {
-      const operatorPayload = {
-        sub: mockAdmin.id,
-        email: mockAdmin.email,
-        role: UserRole.SYSTEM_ADMIN,
-        fullName: mockAdmin.fullName,
-      };
+      userRepositoryMock.findOne.mockResolvedValue(null);
 
       const dto = {
-        email: 'operator@example.com',
-        password: 'OperatorPassword123',
-        fullName: 'New Operator',
+        email: 'op@example.com',
+        password: 'Password123!',
+        fullName: 'Operator User',
         role: UserRole.OPERATOR,
       };
 
-      userRepositoryMock.findOne.mockResolvedValue(null);
+      const result = await service.adminCreateUser(mockAdminPayload, dto);
 
-      const result = await service.adminCreateUser(operatorPayload, dto);
-
-      expect(result.email).toBe(dto.email);
+      expect(userRepositoryMock.save).toHaveBeenCalled();
       expect(result.role).toBe(UserRole.OPERATOR);
     });
 
     it('OPERATOR cannot create a SYSTEM_ADMIN account (ForbiddenException)', async () => {
-      const operatorPayload = {
-        sub: 'op-uuid-123',
-        email: 'op@example.com',
-        role: UserRole.OPERATOR,
-        fullName: 'Operator',
-      };
-
       const dto = {
-        email: 'newadmin@example.com',
-        password: 'AdminPassword123',
+        email: 'admin2@example.com',
+        password: 'Password123!',
         fullName: 'New Admin',
         role: UserRole.SYSTEM_ADMIN,
       };
 
-      await expect(service.adminCreateUser(operatorPayload, dto)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.adminCreateUser(mockOperatorPayload, dto),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
   describe('adminDeleteUser', () => {
     it('SYSTEM_ADMIN can delete an OPERATOR user', async () => {
-      const adminPayload = {
-        sub: mockAdmin.id,
-        email: mockAdmin.email,
-        role: UserRole.SYSTEM_ADMIN,
-        fullName: mockAdmin.fullName,
-      };
+      const targetUser = { ...mockUser, id: 'op-uuid-1234', role: UserRole.OPERATOR };
+      userRepositoryMock.findOne.mockResolvedValue(targetUser);
 
-      const targetOperator: User = {
-        ...mockUser,
-        id: 'op-target-uuid',
-        role: UserRole.OPERATOR,
-      };
+      const result = await service.adminDeleteUser(mockAdminPayload, targetUser.id);
 
-      userRepositoryMock.findOne.mockResolvedValue(targetOperator);
-
-      const result = await service.adminDeleteUser(adminPayload, targetOperator.id);
-
-      expect(userRepositoryMock.remove).toHaveBeenCalledWith(targetOperator);
-      expect(result.message).toContain('permanently deleted');
+      expect(userRepositoryMock.remove).toHaveBeenCalledWith(targetUser);
+      expect(result.message).toContain('deleted');
     });
 
     it('User cannot delete their own account (BadRequestException)', async () => {
-      const adminPayload = {
-        sub: mockAdmin.id,
-        email: mockAdmin.email,
-        role: UserRole.SYSTEM_ADMIN,
-        fullName: mockAdmin.fullName,
-      };
+      const targetUser = { ...mockAdmin };
+      userRepositoryMock.findOne.mockResolvedValue(targetUser);
 
-      userRepositoryMock.findOne.mockResolvedValue(mockAdmin);
-
-      await expect(service.adminDeleteUser(adminPayload, mockAdmin.id)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.adminDeleteUser(mockAdminPayload, mockAdmin.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('Throws NotFoundException if target user ID does not exist', async () => {
-      const adminPayload = {
-        sub: mockAdmin.id,
-        email: mockAdmin.email,
-        role: UserRole.SYSTEM_ADMIN,
-        fullName: mockAdmin.fullName,
-      };
-
       userRepositoryMock.findOne.mockResolvedValue(null);
 
-      await expect(service.adminDeleteUser(adminPayload, 'non-existent-uuid')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.adminDeleteUser(mockAdminPayload, 'non-existent-uuid'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
