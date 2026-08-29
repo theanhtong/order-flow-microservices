@@ -6,10 +6,13 @@ import { OrderService } from './order.service';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 
+import { OrderStatusHistory } from './entities/order-status-history.entity';
+
 describe('OrderService', () => {
   let service: OrderService;
   let orderRepositoryMock: any;
   let orderItemRepositoryMock: any;
+  let statusHistoryRepositoryMock: any;
   let dataSourceMock: any;
   let entityManagerMock: any;
 
@@ -27,6 +30,7 @@ describe('OrderService', () => {
         price: 2499.99,
       } as OrderItem,
     ],
+    statusHistory: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -52,6 +56,11 @@ describe('OrderService', () => {
       save: jest.fn(),
     };
 
+    statusHistoryRepositoryMock = {
+      create: jest.fn((dto) => dto),
+      save: jest.fn((data) => Promise.resolve(data)),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrderService,
@@ -62,6 +71,10 @@ describe('OrderService', () => {
         {
           provide: getRepositoryToken(OrderItem),
           useValue: orderItemRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(OrderStatusHistory),
+          useValue: statusHistoryRepositoryMock,
         },
         {
           provide: DataSource,

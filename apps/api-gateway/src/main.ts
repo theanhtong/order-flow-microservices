@@ -39,59 +39,30 @@ async function bootstrap() {
     };
   };
 
+  const createProxyOptions = (serviceUrl: string, pathPrefix: string, serviceName: string) => ({
+    proxyReqPathResolver: (req: any) => `${pathPrefix}${req.url}`,
+    proxyErrorHandler: createProxyErrorHandler(serviceName, serviceUrl),
+    userResHeaderDecorator: (headers: any, userReq: any) => {
+      if (userReq.headers.origin) {
+        headers['access-control-allow-origin'] = userReq.headers.origin;
+      }
+      headers['access-control-allow-credentials'] = 'true';
+      return headers;
+    },
+  });
+
   // Attach JWT Security & Guest Session Middleware
   app.use(cookieParser());
   app.use(createJwtGatewayMiddleware(jwtSecret));
   app.use(createGuestSessionMiddleware());
 
   // Reverse Proxy Routing to Downstream Microservices
-  app.use(
-    '/api/v1/auth',
-    proxy(authServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/auth${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Auth Service', authServiceUrl),
-    }),
-  );
-
-  app.use(
-    '/api/v1/orders',
-    proxy(orderServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/orders${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Order Service', orderServiceUrl),
-    }),
-  );
-
-  app.use(
-    '/api/v1/inventory',
-    proxy(inventoryServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/inventory${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Inventory Service', inventoryServiceUrl),
-    }),
-  );
-
-  app.use(
-    '/api/v1/products',
-    proxy(productServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/products${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Product Service', productServiceUrl),
-    }),
-  );
-
-  app.use(
-    '/api/v1/payments',
-    proxy(paymentServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/payments${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Payment Service', paymentServiceUrl),
-    }),
-  );
-
-  app.use(
-    '/api/v1/cart',
-    proxy(cartServiceUrl, {
-      proxyReqPathResolver: (req) => `/api/v1/cart${req.url}`,
-      proxyErrorHandler: createProxyErrorHandler('Cart Service', cartServiceUrl),
-    }),
-  );
+  app.use('/api/v1/auth', proxy(authServiceUrl, createProxyOptions(authServiceUrl, '/api/v1/auth', 'Auth Service')));
+  app.use('/api/v1/orders', proxy(orderServiceUrl, createProxyOptions(orderServiceUrl, '/api/v1/orders', 'Order Service')));
+  app.use('/api/v1/inventory', proxy(inventoryServiceUrl, createProxyOptions(inventoryServiceUrl, '/api/v1/inventory', 'Inventory Service')));
+  app.use('/api/v1/products', proxy(productServiceUrl, createProxyOptions(productServiceUrl, '/api/v1/products', 'Product Service')));
+  app.use('/api/v1/payments', proxy(paymentServiceUrl, createProxyOptions(paymentServiceUrl, '/api/v1/payments', 'Payment Service')));
+  app.use('/api/v1/cart', proxy(cartServiceUrl, createProxyOptions(cartServiceUrl, '/api/v1/cart', 'Cart Service')));
 
   // Reverse Proxy OpenAPI Spec JSONs for Unified Swagger UI Dropdown
   app.use(

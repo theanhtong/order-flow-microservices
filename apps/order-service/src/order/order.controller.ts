@@ -98,6 +98,10 @@ export class OrderController {
           enum: Object.values(OrderStatus),
           example: OrderStatus.CONFIRMED,
         },
+        cancelReason: {
+          type: 'string',
+          example: 'Changed my mind',
+        },
       },
     },
   })
@@ -106,7 +110,8 @@ export class OrderController {
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status: OrderStatus,
+    @Body('cancelReason') cancelReason?: string,
   ): Promise<Order> {
-    return await this.orderService.updateOrderStatus(id, status);
+    return await this.orderService.updateOrderStatus(id, status, cancelReason);
   }
 }

@@ -1,12 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { OrderItem } from './order-item.entity';
+import { OrderStatusHistory, OrderStatus } from './order-status-history.entity';
 
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  CANCELLED = 'CANCELLED',
-}
+export { OrderStatus };
 
 @Entity('orders')
 export class Order {
@@ -30,9 +27,17 @@ export class Order {
   @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
+  @ApiProperty({ example: 'Changed my mind', required: false })
+  @Column({ name: 'cancel_reason', type: 'text', nullable: true })
+  cancelReason?: string;
+
   @ApiProperty({ type: () => [OrderItem] })
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
+
+  @ApiProperty({ type: () => [OrderStatusHistory] })
+  @OneToMany(() => OrderStatusHistory, (history) => history.order, { cascade: true })
+  statusHistory: OrderStatusHistory[];
 
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at' })

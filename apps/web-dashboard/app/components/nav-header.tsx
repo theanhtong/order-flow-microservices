@@ -64,31 +64,37 @@ export default function NavHeader() {
           </Link>
 
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-2 border border-slate-200 hover:border-slate-400 bg-white rounded-sm p-2 transition">
-              <Link
-                href="/profile"
-                className="flex flex-col min-w-0 hover:opacity-80 transition cursor-pointer"
-                title="View Profile & Address Book"
-              >
-                <span className="text-slate-900 font-bold truncate text-xs">
-                  {user.fullName || 'User Account'}
-                </span>
-                <span className="text-slate-500 text-[10px] truncate">
-                  {user.email}
-                </span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  router.push('/login');
-                }}
-                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-sm transition shrink-0 ml-1"
-                title="Sign Out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            (() => {
+              const isAdmin = user.role === 'OPERATOR' || user.role === 'SYSTEM_ADMIN';
+              const targetHref = isAdmin ? '/admin' : '/profile';
+              return (
+                <div className="flex items-center gap-2 border border-slate-200 hover:border-slate-400 bg-white rounded-sm p-2 transition">
+                  <Link
+                    href={targetHref}
+                    className="flex flex-col min-w-0 hover:opacity-80 transition cursor-pointer"
+                    title={isAdmin ? 'View Admin Dashboard' : 'View Profile & Address Book'}
+                  >
+                    <span className="text-slate-900 font-bold truncate text-xs">
+                      {user.fullName || 'User Account'}
+                    </span>
+                    <span className="text-slate-500 text-[10px] truncate">
+                      {user.email}
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      router.push('/login');
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded-sm transition shrink-0 ml-1"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })()
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/login" className="ui-button-primary px-3.5 py-1.5 text-xs font-semibold">

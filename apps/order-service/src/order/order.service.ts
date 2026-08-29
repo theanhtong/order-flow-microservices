@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OutboxMessage, OutboxStatus } from '../outbox/outbox-message.entity';
 import { OrderCreatedEvent } from '@orderflow-microservices/shared';
@@ -16,8 +17,10 @@ export class OrderService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(OrderStatusHistory)
+    private readonly statusHistoryRepository: Repository<OrderStatusHistory>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const totalAmount = createOrderDto.items.reduce(
@@ -40,6 +43,12 @@ export class OrderService {
       });
 
       const savedOrder = await manager.save(Order, order);
+
+      const initialHistory = manager.create(OrderStatusHistory, {
+        orderId: savedOrder.id,
+        status: OrderStatus.PENDING,
+      });
+      await manager.save(OrderStatusHistory, initialHistory);
 
       const outboxPayload = new OrderCreatedEvent({
         orderId: savedOrder.id,
@@ -64,7 +73,7 @@ export class OrderService {
       await manager.save(OutboxMessage, outboxMessage);
 
       this.logger.log(
-        `Created Order #${savedOrder.id} and OutboxMessage #${outboxMessage.id} in a single atomic database transaction`,
+        `Created Order #${savedOrder.id} and status history in a single atomic database transaction`,
       );
 
       return savedOrder;
@@ -74,7 +83,12 @@ export class OrderService {
   async getOrderById(id: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id },
-      relations: ['items'],
+      relations: ['items', 'statusHistory'],
+      order: {
+        statusHistory: {
+          createdAt: 'ASC',
+        },
+      },
     });
 
     if (!order) {
@@ -84,7 +98,7 @@ export class OrderService {
     return order;
   }
 
-  async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
+  async updateOrderStatus(id: string, status: OrderStatus, cancelReason?: string): Promise<Order> {
     const order = await this.getOrderById(id);
 
     if (order.status === status) {
@@ -105,13 +119,29 @@ export class OrderService {
     }
 
     order.status = status;
-    return await this.orderRepository.save(order);
+    if (cancelReason !== undefined) {
+      order.cancelReason = cancelReason;
+    }
+    const savedOrder = await this.orderRepository.save(order);
+
+    const newHistory = this.statusHistoryRepository.create({
+      orderId: savedOrder.id,
+      status,
+    });
+    await this.statusHistoryRepository.save(newHistory);
+
+    return await this.getOrderById(savedOrder.id);
   }
 
   async findAllOrders(): Promise<Order[]> {
     return await this.orderRepository.find({
-      relations: ['items'],
-      order: { createdAt: 'DESC' },
+      relations: ['items', 'statusHistory'],
+      order: {
+        createdAt: 'DESC',
+        statusHistory: {
+          createdAt: 'ASC',
+        },
+      },
     });
   }
 }

@@ -307,23 +307,12 @@ export default function CheckoutPage() {
 
     try {
       const orderPayload = {
-        customerId: user.email,
+        customerId: user.id || user.email,
         items: items.map((i) => ({
           productId: i.product.id,
-          sku: i.product.sku,
-          name: i.product.name,
           quantity: i.quantity,
           price: i.product.price,
         })),
-        shippingAddress: {
-          fullName: activeAddress.fullName,
-          phone: activeAddress.phone,
-          address: activeAddress.address,
-          note: activeAddress.note,
-        },
-        paymentMethod,
-        shippingFee,
-        totalAmount,
       };
 
       const res = await createOrderApi(orderPayload);

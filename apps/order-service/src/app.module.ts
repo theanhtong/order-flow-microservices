@@ -6,6 +6,7 @@ import { HealthModule, MetricsModule } from '@orderflow-microservices/shared';
 import { OrderModule } from './order/order.module';
 import { Order } from './order/entities/order.entity';
 import { OrderItem } from './order/entities/order-item.entity';
+import { OrderStatusHistory } from './order/entities/order-status-history.entity';
 import { OutboxMessage } from './outbox/outbox-message.entity';
 
 @Module({
@@ -25,7 +26,7 @@ import { OutboxMessage } from './outbox/outbox-message.entity';
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_NAME', 'db_order'),
-        entities: [Order, OrderItem, OutboxMessage],
+        entities: [Order, OrderItem, OrderStatusHistory, OutboxMessage],
         synchronize: String(configService.get('DB_SYNCHRONIZE', 'true')) === 'true',
       }),
     }),
