@@ -10,8 +10,8 @@
     --border-subtle: #cbd5e1;
     --border-hover: #94a3b8;
     
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
+    --accent: #0f172a;
+    --accent-hover: #1e293b;
 
     --success: #16a34a;
     --warning: #d97706;
@@ -34,11 +34,21 @@
   a,
   [role="button"] {
     cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.98);
   }
 
   button:disabled,
   [disabled] {
     cursor: not-allowed;
+    transform: none !important;
   }
 }
 
@@ -50,7 +60,7 @@
 }
 
 .ui-card-interactive {
-  transition: border-color 0.15s ease;
+  transition: border-color 0.1s ease;
 }
 .ui-card-interactive:hover {
   border-color: var(--border-hover);
@@ -61,7 +71,7 @@
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   border-radius: 0.125rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.1s ease, box-shadow 0.1s ease;
 }
 
 .ui-input:focus {
@@ -76,11 +86,17 @@
   border-radius: 0.125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background-color 0.1s ease, transform 0.05s ease;
 }
 
 .ui-button-primary:hover {
   background-color: var(--accent-hover);
+}
+
+.ui-button-primary:active {
+  transform: scale(0.98);
 }
 
 .ui-button-secondary {
@@ -90,12 +106,18 @@
   border-radius: 0.125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background-color 0.1s ease, border-color 0.1s ease, transform 0.05s ease;
 }
 
 .ui-button-secondary:hover {
   background-color: var(--bg-surface-hover);
   border-color: var(--border-hover);
+}
+
+.ui-button-secondary:active {
+  transform: scale(0.98);
 }
 
 .ui-badge {

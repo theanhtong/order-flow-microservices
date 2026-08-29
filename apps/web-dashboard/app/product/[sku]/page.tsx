@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import {
   ImageOff,
   ArrowLeft,
-  CheckCircle2,
   ShoppingCart,
   Plus,
   Minus,
@@ -17,6 +16,7 @@ import {
 import NavHeader from '../../components/nav-header';
 import { getProductBySku, Product } from '../../utils/product-api';
 import { useAuthStore } from '../../store/auth-store';
+import { useCartStore } from '../../store/cart-store';
 
 interface Review {
   id: string;
@@ -61,12 +61,12 @@ export default function ProductDetailPage({
 }) {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const addItem = useCartStore((state) => state.addItem);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [quantityInput, setQuantityInput] = useState<string>('1');
 
-  // Review State
   const [reviews, setReviews] = useState<Review[]>(SAMPLE_REVIEWS);
   const [newRating, setNewRating] = useState<number>(5);
   const [newComment, setNewComment] = useState<string>('');
@@ -101,6 +101,7 @@ export default function ProductDetailPage({
 
   const handleAddToCart = () => {
     if (!product) return;
+    addItem(product, parsedQuantity);
     toast.success(`Added ${parsedQuantity}x ${product.name} to cart`);
   };
 
@@ -109,16 +110,23 @@ export default function ProductDetailPage({
     if (!product) return;
 
     if (!user) {
-      toast.error('Please sign in to place an order');
+      toast.error('Please sign in to proceed to checkout');
       router.push('/login');
       return;
     }
 
-    toast.success(`Order created for ${product.name}`, {
-      description: `Customer: ${user.email} • Total: $${(product.price * parsedQuantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-    });
+    if (typeof window !== 'undefined') {
+      const directCheckoutItem = [
+        {
+          product: product,
+          quantity: parsedQuantity,
+        },
+      ];
+      sessionStorage.setItem('checkout_items', JSON.stringify(directCheckoutItem));
+      sessionStorage.setItem('checkout_source', 'direct');
+    }
 
-    router.push('/orders');
+    router.push('/checkout');
   };
 
   const handleAddReview = (e: React.FormEvent) => {
@@ -144,7 +152,6 @@ export default function ProductDetailPage({
       <NavHeader />
 
       <main className="max-w-5xl w-full mx-auto p-4 sm:p-6 flex-1 space-y-6">
-        {/* Back Link */}
         <div>
           <Link
             href="/"
@@ -170,45 +177,30 @@ export default function ProductDetailPage({
             </Link>
           </div>
         ) : (
-          /* SINGLE CONTAINER BLOCK FOR PRODUCT + REVIEWS SEPARATED BY DIVIDER LINE */
           <div className="ui-card p-6 sm:p-8 bg-white border-slate-200 shadow-xs space-y-8">
-            {/* TOP SECTION: PRODUCT DETAILS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-              {/* Left Image Banner */}
               <div className="w-full aspect-square bg-slate-100 border border-slate-200 rounded-sm flex items-center justify-center">
                 <ImageOff className="w-16 h-16 text-slate-300 stroke-[1.2]" />
               </div>
 
-              {/* Right Product Info */}
               <div className="space-y-6 font-mono flex flex-col justify-between h-full">
                 <div className="space-y-4">
-                  {/* Meta Badges */}
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-xs font-bold border border-slate-200">
-                      {product.sku}
-                    </span>
                     <span className="ui-badge bg-slate-100 border-slate-300 text-slate-700">
                       {product.category}
-                    </span>
-                    <span className="ui-badge bg-emerald-50 border-emerald-300 text-emerald-800 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      In Stock
                     </span>
                   </div>
 
                   <div className="space-y-2 py-2 border-b border-slate-200">
-                    {/* Title */}
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 leading-snug">
                       {product.name}
                     </h1>
 
-                    {/* Description */}
                     <p className="text-xs text-slate-600 leading-relaxed font-sans">
                       {product.description || 'High-performance electronic device with premium quality finish.'}
                     </p>
                   </div>
 
-                  {/* Unit Price */}
                   <div className="space-y-1">
                     <div className="text-3xl font-bold text-slate-900">
                       ${product.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -216,9 +208,7 @@ export default function ProductDetailPage({
                   </div>
                 </div>
 
-                {/* Checkout & Quantity Form */}
                 <form onSubmit={handlePlaceOrder} className="space-y-6 pt-2">
-                  {/* Quantity Input */}
                   <div className="flex items-center justify-between">
                     <label className="text-xs text-slate-600 font-bold uppercase tracking-wider">
                       Quantity

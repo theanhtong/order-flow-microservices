@@ -56,7 +56,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
+
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -130,9 +130,6 @@ export default function OrdersPage() {
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Orders
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Manage and track order flow.
-            </p>
           </div>
 
           <button
@@ -170,11 +167,10 @@ export default function OrdersPage() {
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-2.5 py-1 text-xs rounded-sm transition ${
-                  filterStatus === status
+                className={`px-2.5 py-1 text-xs rounded-sm transition ${filterStatus === status
                     ? 'bg-white text-slate-900 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 {status}
               </button>

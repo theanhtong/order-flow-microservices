@@ -9,6 +9,7 @@ import {
   setInMemoryAccessToken,
   setInMemoryUser,
 } from '../utils/auth-api';
+import { useCartStore } from './cart-store';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -52,6 +53,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         accessToken: res.accessToken,
         isAuthenticated: true,
       });
+
+      // Merge guest localStorage cart into Redis DB and clear localStorage
+      await useCartStore.getState().mergeGuestCartToRedis();
     } finally {
       set({ loading: false });
     }
@@ -68,6 +72,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         accessToken: res.accessToken,
         isAuthenticated: true,
       });
+
+      // Merge guest localStorage cart into Redis DB and clear localStorage
+      await useCartStore.getState().mergeGuestCartToRedis();
     } finally {
       set({ loading: false });
     }
@@ -80,6 +87,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     } finally {
       setInMemoryAccessToken(null);
       setInMemoryUser(null);
+      // Clear in-memory cart display and clear localStorage
+      useCartStore.getState().logoutCartCleanUp();
       set({
         user: null,
         accessToken: null,
@@ -108,6 +117,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: profile,
         isAuthenticated: true,
       });
+
+      // Sync latest user cart from Redis DB
+      await useCartStore.getState().syncUserCartFromRedis();
     } catch {
       setInMemoryAccessToken(null);
       setInMemoryUser(null);

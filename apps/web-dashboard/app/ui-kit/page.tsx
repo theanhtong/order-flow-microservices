@@ -12,7 +12,6 @@ export default function UIKitPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6 md:p-10 font-sans">
-      {/* Top Header */}
       <header className="max-w-6xl mx-auto mb-8 border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -31,10 +30,9 @@ export default function UIKitPage() {
       </header>
 
       <main className="max-w-6xl mx-auto space-y-8">
-        {/* SECTION 1: PALETTE */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             1. Color Palette
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
@@ -54,9 +52,9 @@ export default function UIKitPage() {
               <div className="text-[10px] font-mono text-slate-500">#e2e8f0</div>
             </div>
             <div className="ui-card p-2.5 space-y-1.5">
-              <div className="h-8 rounded-sm bg-blue-600" />
-              <div className="text-[11px] font-mono text-blue-900 font-semibold">Primary</div>
-              <div className="text-[10px] font-mono text-slate-500">#2563eb</div>
+              <div className="h-8 rounded-sm bg-slate-900" />
+              <div className="text-[11px] font-mono text-slate-900 font-semibold">Primary</div>
+              <div className="text-[10px] font-mono text-slate-500">#0f172a</div>
             </div>
             <div className="ui-card p-2.5 space-y-1.5">
               <div className="h-8 rounded-sm bg-emerald-100 border border-emerald-400" />
@@ -71,10 +69,9 @@ export default function UIKitPage() {
           </div>
         </section>
 
-        {/* SECTION 2: BUTTONS */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             2. Buttons
           </h2>
           <div className="ui-card p-4 flex flex-wrap items-center gap-2">
@@ -110,11 +107,9 @@ export default function UIKitPage() {
             </button>
           </div>
         </section>
-
-        {/* SECTION 3: BADGES */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             3. Status Badges
           </h2>
           <div className="ui-card p-4 space-y-3">
@@ -156,11 +151,9 @@ export default function UIKitPage() {
             </div>
           </div>
         </section>
-
-        {/* SECTION 4: FORM CONTROLS */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             4. Form Controls
           </h2>
           <div className="ui-card p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -225,11 +218,9 @@ export default function UIKitPage() {
             </div>
           </div>
         </section>
-
-        {/* SECTION 5: DATA GRID */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             5. Data Grid
           </h2>
           <div className="ui-card overflow-hidden">
@@ -267,10 +258,9 @@ export default function UIKitPage() {
           </div>
         </section>
 
-        {/* SECTION 6: DIALOGS & TOASTS */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-blue-600 rounded-sm" />
+            <span className="w-1.5 h-1.5 bg-slate-900 rounded-sm" />
             6. Notifications & Dialogs
           </h2>
           <div className="ui-card p-4 flex gap-3">
@@ -296,7 +286,6 @@ export default function UIKitPage() {
         </section>
       </main>
 
-      {/* SAMPLE MODAL DIALOG */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
           <div className="ui-card p-4 max-w-sm w-full bg-white border-slate-300 shadow-xl space-y-3 rounded-sm">
