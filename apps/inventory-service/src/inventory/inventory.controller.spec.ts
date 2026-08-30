@@ -92,14 +92,14 @@ describe('InventoryController', () => {
     });
   });
 
-  describe('handleOrderCreated', () => {
-    it('should reserve stock and emit inventory.reserved when all items reserved', async () => {
+  describe('handleOrderConfirmed', () => {
+    it('should reserve stock and emit inventory.reserved when all items reserved on order confirmation', async () => {
       const eventData = {
         orderId: 'order-uuid-1234',
         items: [{ productId: 'prod-uuid-1234', quantity: 2 }],
       };
 
-      await controller.handleOrderCreated(eventData as any);
+      await controller.handleOrderConfirmed(eventData as any);
 
       expect(inventoryServiceMock.reserveStock).toHaveBeenCalledWith('prod-uuid-1234', { quantity: 2 });
       expect(rabbitClientMock.emit).toHaveBeenCalledWith(
@@ -118,7 +118,7 @@ describe('InventoryController', () => {
         items: [{ productId: 'prod-uuid-1234', quantity: 2 }],
       };
 
-      await expect(controller.handleOrderCreated(eventData as any)).rejects.toThrow(
+      await expect(controller.handleOrderConfirmed(eventData as any)).rejects.toThrow(
         'RabbitMQ Broker Unreachable / Socket Hangup',
       );
     });
@@ -131,7 +131,7 @@ describe('InventoryController', () => {
         items: [{ productId: 'prod-uuid-1234', quantity: 100 }],
       };
 
-      await controller.handleOrderCreated(eventData as any);
+      await controller.handleOrderConfirmed(eventData as any);
 
       expect(rabbitClientMock.emit).toHaveBeenCalledWith(
         'inventory.failed',

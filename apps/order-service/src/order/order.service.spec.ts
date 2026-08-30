@@ -7,6 +7,7 @@ import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 
 import { OrderStatusHistory } from './entities/order-status-history.entity';
+import { OutboxMessage } from '../outbox/outbox-message.entity';
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -61,6 +62,11 @@ describe('OrderService', () => {
       save: jest.fn((data) => Promise.resolve(data)),
     };
 
+    const outboxRepositoryMock = {
+      create: jest.fn((dto) => dto),
+      save: jest.fn((data) => Promise.resolve(data)),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrderService,
@@ -75,6 +81,10 @@ describe('OrderService', () => {
         {
           provide: getRepositoryToken(OrderStatusHistory),
           useValue: statusHistoryRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(OutboxMessage),
+          useValue: outboxRepositoryMock,
         },
         {
           provide: DataSource,
@@ -100,8 +110,8 @@ describe('OrderService', () => {
       const result = await service.createOrder(dto);
 
       expect(dataSourceMock.transaction).toHaveBeenCalled();
-      expect(entityManagerMock.create).toHaveBeenCalledTimes(3); // Order, OrderItem, OutboxMessage
-      expect(entityManagerMock.save).toHaveBeenCalledTimes(2); // Order, OutboxMessage
+      expect(entityManagerMock.create).toHaveBeenCalledTimes(4); // Order, OrderItem, OrderStatusHistory, OutboxMessage
+      expect(entityManagerMock.save).toHaveBeenCalledTimes(3); // Order, OrderItem array, OutboxMessage
       expect(result.totalAmount).toBe(4999.98);
       expect(result.status).toBe(OrderStatus.PENDING);
     });
@@ -165,13 +175,12 @@ describe('OrderService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw BadRequestException if transitioning to the exact same status', async () => {
+    it('should return existing order directly if transitioning to the exact same status', async () => {
       const pendingOrder = { ...mockOrder, status: OrderStatus.PENDING };
       orderRepositoryMock.findOne.mockResolvedValue(pendingOrder);
 
-      await expect(
-        service.updateOrderStatus(mockOrder.id, OrderStatus.PENDING),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.updateOrderStatus(mockOrder.id, OrderStatus.PENDING);
+      expect(result.status).toBe(OrderStatus.PENDING);
     });
   });
 });
