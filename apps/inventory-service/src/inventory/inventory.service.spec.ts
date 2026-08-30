@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { Inventory } from './entities/inventory.entity';
 
