@@ -1,12 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { OrderItem } from './order-item.entity';
+import { OrderStatusHistory, OrderStatus } from './order-status-history.entity';
 
-export enum OrderStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  CANCELLED = 'CANCELLED',
-}
+export { OrderStatus };
 
 @Entity('orders')
 export class Order {
@@ -30,9 +27,41 @@ export class Order {
   @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
+  @ApiProperty({ example: 'John Doe', required: false })
+  @Column({ name: 'recipient_name', nullable: true })
+  recipientName?: string;
+
+  @ApiProperty({ example: '0844499424', required: false })
+  @Column({ nullable: true })
+  phone?: string;
+
+  @ApiProperty({ example: '123 Nguyen Hue', required: false })
+  @Column({ name: 'shipping_address', type: 'text', nullable: true })
+  shippingAddress?: string;
+
+  @ApiProperty({ example: '20308', required: false })
+  @Column({ name: 'to_ward_code', nullable: true })
+  toWardCode?: string;
+
+  @ApiProperty({ example: 1442, required: false })
+  @Column({ name: 'to_district_id', type: 'int', nullable: true })
+  toDistrictId?: number;
+
+  @ApiProperty({ example: 'COD', required: false })
+  @Column({ name: 'payment_method', nullable: true, default: 'COD' })
+  paymentMethod?: string;
+
+  @ApiProperty({ example: 'Changed my mind', required: false })
+  @Column({ name: 'cancel_reason', type: 'text', nullable: true })
+  cancelReason?: string;
+
   @ApiProperty({ type: () => [OrderItem] })
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
+
+  @ApiProperty({ type: () => [OrderStatusHistory] })
+  @OneToMany(() => OrderStatusHistory, (history) => history.order, { cascade: true })
+  statusHistory: OrderStatusHistory[];
 
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at' })

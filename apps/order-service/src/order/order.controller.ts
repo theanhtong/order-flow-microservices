@@ -56,6 +56,45 @@ export class OrderController {
     }
   }
 
+  @EventPattern('shipment.dispatched')
+  async handleShipmentDispatched(@Payload() data: { orderId: string; shipmentId: string }) {
+    this.logger.log(`Received shipment.dispatched event for Order #${data.orderId}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.SHIPPING);
+      this.logger.log(`Successfully updated Order #${data.orderId} status to SHIPPING`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to SHIPPING: ${error.message}`);
+    }
+  }
+
+  @EventPattern('shipment.delivered')
+  async handleShipmentDelivered(@Payload() data: { orderId: string; shipmentId: string }) {
+    this.logger.log(`Received shipment.delivered event for Order #${data.orderId}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.DELIVERED);
+      this.logger.log(`Successfully updated Order #${data.orderId} status to DELIVERED upon carrier delivery confirmation`);
+    } catch (error) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to DELIVERED: ${error.message}`);
+    }
+  }
+
+  @EventPattern('shipment.delivery_fail')
+  async handleShipmentDeliveryFail(@Payload() data: { orderId: string; reason?: string }) {
+    this.logger.log(`Received shipment.delivery_fail event for Order #${data.orderId}`);
+    try {
+      await this.orderService.updateOrderStatus(data.orderId, OrderStatus.CANCELLED, data.reason || 'Delivery failed');
+      this.logger.log(`Successfully updated Order #${data.orderId} status to CANCELLED on delivery failure`);
+    } catch (error: any) {
+      this.logger.error(`Failed to update Order #${data.orderId} status to CANCELLED: ${error.message}`);
+    }
+  }
+
+  @EventPattern('order.created')
+  async handleOrderCreated() {}
+
+  @EventPattern('order.cancelled')
+  async handleOrderCancelled() {}
+
   @Post()
   @ApiOperation({ summary: 'Create a new order' })
   @ApiResponse({ status: 201, description: 'Order successfully created', type: Order })
@@ -98,6 +137,10 @@ export class OrderController {
           enum: Object.values(OrderStatus),
           example: OrderStatus.CONFIRMED,
         },
+        cancelReason: {
+          type: 'string',
+          example: 'Changed my mind',
+        },
       },
     },
   })
@@ -106,7 +149,8 @@ export class OrderController {
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status: OrderStatus,
+    @Body('cancelReason') cancelReason?: string,
   ): Promise<Order> {
-    return await this.orderService.updateOrderStatus(id, status);
+    return await this.orderService.updateOrderStatus(id, status, cancelReason);
   }
 }

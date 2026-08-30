@@ -10,7 +10,7 @@ import { OutboxProcessorService } from './outbox-processor.service';
     TypeOrmModule.forFeature([OutboxMessage]),
     ClientsModule.registerAsync([
       {
-        name: 'RABBITMQ_SERVICE',
+        name: 'RABBITMQ_INVENTORY_SERVICE',
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: (configService: ConfigService) => ({
@@ -18,9 +18,33 @@ import { OutboxProcessorService } from './outbox-processor.service';
           options: {
             urls: [configService.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672')],
             queue: 'inventory_queue',
-            queueOptions: {
-              durable: true,
-            },
+            queueOptions: { durable: true },
+          },
+        }),
+      },
+      {
+        name: 'RABBITMQ_PAYMENT_SERVICE',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [configService.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672')],
+            queue: 'payment_queue',
+            queueOptions: { durable: true },
+          },
+        }),
+      },
+      {
+        name: 'RABBITMQ_SHIPPING_SERVICE',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (configService: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [configService.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672')],
+            queue: 'shipping_queue',
+            queueOptions: { durable: true },
           },
         }),
       },

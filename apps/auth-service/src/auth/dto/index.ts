@@ -63,9 +63,15 @@ export class CreateUserAdminDto {
 }
 
 export class UpdateStatusDto {
-  @ApiProperty({ description: 'Active status', example: false })
+  @ApiPropertyOptional({ description: 'Active status', example: false })
   @IsBoolean()
-  isActive: boolean;
+  @IsOptional()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'User role', enum: UserRole, example: UserRole.CUSTOMER })
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole;
 }
 
 export class CreateAddressDto {

@@ -30,4 +30,25 @@ export class NotificationController {
     this.logger.log(`Received inventory.failed event for Order #${data.orderId}`);
     this.notificationService.sendOrderCancelledNotification(data);
   }
+
+  @EventPattern('shipment.dispatched')
+  handleShipmentDispatched(@Payload() data: any) {
+    this.logger.log(`Received shipment.dispatched event for Order #${data?.orderId}`);
+  }
+
+  @EventPattern('shipment.delivered')
+  handleShipmentDelivered(@Payload() data: any) {
+    this.logger.log(`Received shipment.delivered event for Order #${data?.orderId}`);
+  }
+
+  @EventPattern('order.cancelled')
+  handleOrderCancelled(@Payload() data: any) {
+    this.logger.log(`Received order.cancelled event for Order #${data?.orderId}`);
+    this.notificationService.sendOrderCancelledNotification(data);
+  }
+
+  @EventPattern('shipment.delivery_fail')
+  handleShipmentDeliveryFail(@Payload() data: any) {
+    this.logger.log(`Received shipment.delivery_fail event for Order #${data?.orderId}`);
+  }
 }

@@ -12,8 +12,12 @@ export class OutboxProcessorService {
   constructor(
     @InjectRepository(OutboxMessage)
     private readonly outboxRepository: Repository<OutboxMessage>,
-    @Inject('RABBITMQ_SERVICE')
-    private readonly rabbitClient: ClientProxy,
+    @Inject('RABBITMQ_INVENTORY_SERVICE')
+    private readonly inventoryClient: ClientProxy,
+    @Inject('RABBITMQ_PAYMENT_SERVICE')
+    private readonly paymentClient: ClientProxy,
+    @Inject('RABBITMQ_SHIPPING_SERVICE')
+    private readonly shippingClient: ClientProxy,
   ) {}
 
   @Cron(CronExpression.EVERY_5_SECONDS)
@@ -32,14 +36,17 @@ export class OutboxProcessorService {
 
     for (const message of pendingMessages) {
       try {
-        this.rabbitClient.emit(message.eventType, message.payload).subscribe();
+        this.inventoryClient.emit(message.eventType, message.payload).subscribe();
+        this.paymentClient.emit(message.eventType, message.payload).subscribe();
+        this.shippingClient.emit(message.eventType, message.payload).subscribe();
+        
         message.status = OutboxStatus.PROCESSED;
         message.processedAt = new Date();
         await this.outboxRepository.save(message);
         this.logger.log(
           `Published outbox event "${message.eventType}" for ${message.aggregateType} #${message.aggregateId}`,
         );
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(
           `Failed to publish outbox event #${message.id}: ${error.message}`,
         );

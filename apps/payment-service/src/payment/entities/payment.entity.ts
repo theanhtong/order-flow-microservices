@@ -2,6 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum PaymentMethod {
+  COD = 'COD',
+  BANK_QR = 'BANK_QR',
   VNPAY = 'VNPAY',
   MOMO = 'MOMO',
   CREDIT_CARD = 'CREDIT_CARD',
