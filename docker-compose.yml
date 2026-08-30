@@ -261,6 +261,7 @@ services:
       PRODUCT_SERVICE_URL: "http://product-service:3003"
       PAYMENT_SERVICE_URL: "http://payment-service:3005"
       CART_SERVICE_URL: "http://cart-service:3007"
+      SHIPPING_SERVICE_URL: "http://shipping-service:3006"
       JWT_SECRET: "${JWT_SECRET:-super_secret_jwt_key_2026}"
     depends_on:
       - auth-service
@@ -269,6 +270,7 @@ services:
       - product-service
       - payment-service
       - cart-service
+      - shipping-service
 
   cart-service:
     build:
@@ -304,6 +306,43 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  shipping-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: shipping-service
+    container_name: shipping-service
+    restart: always
+    ports:
+      - "${SHIPPING_SERVICE_PORT:-3006}:3006"
+    environment:
+      NODE_ENV: production
+      PORT: 3006
+      RABBITMQ_URL: "amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672"
+      DB_HOST: order-db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: db_order
+      DB_SYNCHRONIZE: "true"
+      GHN_TOKEN: "9c07030b-30a5-11f1-a973-aee5264794df"
+      GHN_SHOP_ID: "199852"
+      GHN_SHOP_NAME: "TongTheAnh"
+      GHN_SHOP_PHONE: "0844499424"
+      GHN_FROM_ADDRESS: "72 Thanh Thai, Ward 14, District 10, Ho Chi Minh"
+      GHN_FROM_WARD_NAME: "Phường 14"
+      GHN_FROM_DISTRICT_NAME: "Quận 10"
+      GHN_FROM_PROVINCE_NAME: "TP Hồ Chí Minh"
+      GHN_DEFAULT_TO_ADDRESS: "123 Nguyen Hue, Ward Ben Nghe, District 1, Ho Chi Minh"
+      GHN_DEFAULT_TO_WARD_CODE: "20308"
+      GHN_DEFAULT_TO_DISTRICT_ID: "1442"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      order-db:
+        condition: service_healthy
+
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: prometheus
@@ -320,7 +359,7 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - "3006:3000"
+      - "3090:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin

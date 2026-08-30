@@ -19,20 +19,27 @@ export async function fetchAdminUsersApi(): Promise<SystemUser[]> {
   }
 }
 
-export async function updateAdminUserStatusApi(
+export async function updateAdminUserApi(
   userId: string,
-  isActive: boolean
+  data: { role?: string; isActive?: boolean }
 ): Promise<SystemUser> {
   try {
     const response = await authApiClient.patch<SystemUser>(
       `/auth/admin/users/${userId}/status`,
-      { isActive }
+      data
     );
     return response.data;
   } catch (error) {
-    console.error(`Failed to update user status for ${userId}:`, error);
+    console.error(`Failed to update user ${userId}:`, error);
     throw error;
   }
+}
+
+export async function updateAdminUserStatusApi(
+  userId: string,
+  isActive: boolean
+): Promise<SystemUser> {
+  return updateAdminUserApi(userId, { isActive });
 }
 
 export async function deleteAdminUserApi(userId: string): Promise<void> {

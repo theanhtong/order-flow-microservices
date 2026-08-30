@@ -27,6 +27,30 @@ export class Order {
   @Column({ name: 'total_amount', type: 'decimal', precision: 10, scale: 2 })
   totalAmount: number;
 
+  @ApiProperty({ example: 'John Doe', required: false })
+  @Column({ name: 'recipient_name', nullable: true })
+  recipientName?: string;
+
+  @ApiProperty({ example: '0844499424', required: false })
+  @Column({ nullable: true })
+  phone?: string;
+
+  @ApiProperty({ example: '123 Nguyen Hue', required: false })
+  @Column({ name: 'shipping_address', type: 'text', nullable: true })
+  shippingAddress?: string;
+
+  @ApiProperty({ example: '20308', required: false })
+  @Column({ name: 'to_ward_code', nullable: true })
+  toWardCode?: string;
+
+  @ApiProperty({ example: 1442, required: false })
+  @Column({ name: 'to_district_id', type: 'int', nullable: true })
+  toDistrictId?: number;
+
+  @ApiProperty({ example: 'COD', required: false })
+  @Column({ name: 'payment_method', nullable: true, default: 'COD' })
+  paymentMethod?: string;
+
   @ApiProperty({ example: 'Changed my mind', required: false })
   @Column({ name: 'cancel_reason', type: 'text', nullable: true })
   cancelReason?: string;

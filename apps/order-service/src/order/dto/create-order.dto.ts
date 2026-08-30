@@ -25,6 +25,36 @@ export class CreateOrderDto {
   @IsOptional()
   customerId?: string;
 
+  @ApiProperty({ description: 'Recipient Name', example: 'John Doe', required: false })
+  @IsString()
+  @IsOptional()
+  recipientName?: string;
+
+  @ApiProperty({ description: 'Phone Number', example: '0844499424', required: false })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiProperty({ description: 'Street Address', example: '123 Nguyen Hue', required: false })
+  @IsString()
+  @IsOptional()
+  shippingAddress?: string;
+
+  @ApiProperty({ description: 'GHN Ward Code', example: '20308', required: false })
+  @IsString()
+  @IsOptional()
+  toWardCode?: string;
+
+  @ApiProperty({ description: 'GHN District ID', example: 1442, required: false })
+  @IsNumber()
+  @IsOptional()
+  toDistrictId?: number;
+
+  @ApiProperty({ description: 'Payment Method (COD, VNPAY, BANK_QR, etc)', example: 'COD', required: false })
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string;
+
   @ApiProperty({ type: [CreateOrderItemDto], description: 'List of items in the order' })
   @IsArray()
   @ArrayMinSize(1)

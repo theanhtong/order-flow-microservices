@@ -146,7 +146,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async adminCreateUser(operatorUser: UserJwtPayload, dto: CreateUserAdminDto) {
-    this.verifyHierarchyAuthority(operatorUser.role, dto.role, 'create');
+    this.verifyRoleHierarchy(operatorUser.role, dto.role, 'create');
 
     const existing = await this.userRepository.findOne({ where: { email: dto.email } });
     if (existing) {
@@ -171,7 +171,7 @@ export class AuthService implements OnModuleInit {
       throw new NotFoundException(`User with ID "${targetUserId}" not found`);
     }
 
-    this.verifyHierarchyAuthority(operatorUser.role, targetUser.role, 'logout from remote');
+    this.verifyHierarchyAuthority(operatorUser, targetUser, 'logout from remote');
     await this.logoutAll(targetUserId);
 
     return { message: `Successfully logged out user ${targetUser.email} from all devices` };
@@ -187,12 +187,26 @@ export class AuthService implements OnModuleInit {
       throw new NotFoundException(`User with ID "${targetUserId}" not found`);
     }
 
-    this.verifyHierarchyAuthority(operatorUser.role, targetUser.role, 'modify status of');
+    this.verifyHierarchyAuthority(operatorUser, targetUser, 'modify user account of');
 
-    targetUser.isActive = dto.isActive;
+    if (dto.role && dto.role !== targetUser.role) {
+      const operatorLevel = ROLE_LEVELS[operatorUser.role] ?? 0;
+      const newRoleLevel = ROLE_LEVELS[dto.role] ?? 0;
+      if (operatorLevel <= newRoleLevel) {
+        throw new ForbiddenException(
+          `Insufficient privileges: You cannot assign role "${dto.role}" which is equal or higher than your own role level.`,
+        );
+      }
+      targetUser.role = dto.role;
+    }
+
+    if (dto.isActive !== undefined) {
+      targetUser.isActive = dto.isActive;
+    }
+
     const updatedUser = await this.userRepository.save(targetUser);
 
-    if (!dto.isActive) {
+    if (dto.isActive === false) {
       await this.logoutAll(targetUserId);
     }
 
@@ -205,11 +219,7 @@ export class AuthService implements OnModuleInit {
       throw new NotFoundException(`User with ID "${targetUserId}" not found`);
     }
 
-    if (operatorUser.sub === targetUserId) {
-      throw new BadRequestException('You cannot delete your own account');
-    }
-
-    this.verifyHierarchyAuthority(operatorUser.role, targetUser.role, 'delete');
+    this.verifyHierarchyAuthority(operatorUser, targetUser, 'delete');
 
     await this.logoutAll(targetUserId);
     await this.userRepository.remove(targetUser);
@@ -225,6 +235,18 @@ export class AuthService implements OnModuleInit {
   }
 
   private verifyHierarchyAuthority(
+    operatorUser: UserJwtPayload,
+    targetUser: User,
+    actionName: string,
+  ) {
+    if (operatorUser.sub === targetUser.id) {
+      throw new BadRequestException(`You cannot ${actionName} your own account`);
+    }
+
+    this.verifyRoleHierarchy(operatorUser.role, targetUser.role, actionName);
+  }
+
+  private verifyRoleHierarchy(
     operatorRole: UserRole,
     targetRole: UserRole,
     actionName: string,
@@ -232,13 +254,7 @@ export class AuthService implements OnModuleInit {
     const operatorLevel = ROLE_LEVELS[operatorRole] ?? 0;
     const targetLevel = ROLE_LEVELS[targetRole] ?? 0;
 
-    if (operatorRole === UserRole.OPERATOR && targetRole !== UserRole.CUSTOMER) {
-      throw new ForbiddenException(
-        `OPERATOR role is not authorized to ${actionName} account with role "${targetRole}". Only SYSTEM_ADMIN can perform this action.`,
-      );
-    }
-
-    if (operatorLevel <= targetLevel && operatorRole !== UserRole.SYSTEM_ADMIN) {
+    if (operatorLevel <= targetLevel) {
       throw new ForbiddenException(
         `Insufficient privileges: You cannot ${actionName} an account with equal or higher role level (${targetRole}).`,
       );

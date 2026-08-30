@@ -145,3 +145,45 @@ export async function getProductBySku(sku: string): Promise<Product | null> {
   const { data } = await getProducts();
   return data.find((p) => p.sku.toLowerCase() === sku.toLowerCase()) || null;
 }
+
+export async function createProductApi(payload: Partial<Product> & { initialStock?: number }): Promise<Product> {
+  const res = await apiClient.post('/products', payload);
+  const item = res.data;
+  return {
+    id: item.id,
+    name: item.name,
+    sku: item.sku,
+    category: item.category,
+    price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
+    description: item.description || '',
+    inStock: item.isActive !== false,
+  };
+}
+
+export async function updateProductApi(id: string, payload: Partial<Product>): Promise<Product> {
+  const res = await apiClient.patch(`/products/${id}`, payload);
+  const item = res.data;
+  return {
+    id: item.id,
+    name: item.name,
+    sku: item.sku,
+    category: item.category,
+    price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
+    description: item.description || '',
+    inStock: item.isActive !== false,
+  };
+}
+
+export async function deleteProductApi(id: string): Promise<Product> {
+  const res = await apiClient.delete(`/products/${id}`);
+  const item = res.data;
+  return {
+    id: item.id,
+    name: item.name,
+    sku: item.sku,
+    category: item.category,
+    price: typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0,
+    description: item.description || '',
+    inStock: false,
+  };
+}

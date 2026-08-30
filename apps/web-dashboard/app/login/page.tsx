@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -17,13 +17,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState<string>('Sysadmin@123');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'SYSTEM_ADMIN' || user.role === 'OPERATOR') {
+        router.replace('/admin/orders');
+      } else {
+        router.replace('/');
+      }
+    }
+  }, [isAuthenticated, user, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       await login(email, password);
       toast.success('Logged in successfully');
-      router.push('/');
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.role === 'SYSTEM_ADMIN' || currentUser?.role === 'OPERATOR') {
+        router.push('/admin/orders');
+      } else {
+        router.push('/');
+      }
     } catch (err: any) {
       toast.error('Login Failed', {
         description: err.response?.data?.message || err.message || 'Invalid email or password',
@@ -48,61 +63,48 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {isAuthenticated && user ? (
-            <div className="bg-slate-50 p-4 rounded-sm border border-slate-200 space-y-3 text-xs text-center">
-              <div className="text-slate-600">
-                You are currently signed in as <strong className="text-slate-900">{user.email}</strong>
-              </div>
-              <div className="flex gap-2 justify-center">
-                <Link href="/" className="ui-button-primary px-4 py-1.5 text-xs font-semibold">
-                  Go to Home
-                </Link>
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <div className="space-y-1">
+              <label className="text-slate-600 font-semibold block">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full px-3 py-2 ui-input text-xs"
+                required
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-600 font-semibold block">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full px-3 py-2 ui-input text-xs"
-                  required
-                />
-              </div>
 
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <label className="text-slate-600 font-semibold block">Password</label>
-                </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 ui-input text-xs"
-                  required
-                />
+            <div className="space-y-1">
+              <div className="flex justify-between items-center">
+                <label className="text-slate-600 font-semibold block">Password</label>
               </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3 py-2 ui-input text-xs"
+                required
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full ui-button-primary py-2 text-xs font-semibold"
-              >
-                {submitting ? 'Signing In...' : 'Sign In'}
-              </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full ui-button-primary py-2 text-xs font-semibold"
+            >
+              {submitting ? 'Signing In...' : 'Sign In'}
+            </button>
 
-              <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100">
-                Don't have an account?{' '}
-                <Link href="/register" className="text-slate-900 font-bold hover:underline">
-                  Register here
-                </Link>
-              </div>
-            </form>
-          )}
+            <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-slate-900 font-bold hover:underline">
+                Register here
+              </Link>
+            </div>
+          </form>
         </div>
       </main>
     </div>

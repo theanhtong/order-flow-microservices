@@ -14,6 +14,11 @@ import {
   Search,
   Eye,
   AlertTriangle,
+  CheckCircle2,
+  CreditCard,
+  Banknote,
+  RotateCcw,
+  XCircle,
 } from 'lucide-react';
 import NavHeader from '../components/nav-header';
 import { useAuthStore } from '../store/auth-store';
@@ -22,6 +27,7 @@ import {
   updateOrderStatusApi,
   ApiOrder,
 } from '../utils/order-api';
+import { fetchPaymentByOrderIdApi, ApiPayment } from '../utils/payment-api';
 
 const PRESET_CANCEL_REASONS = [
   'Want to change shipping address',
@@ -39,6 +45,7 @@ export default function OrdersPage() {
 
   const [mounted, setMounted] = useState(false);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [paymentsMap, setPaymentsMap] = useState<Record<string, ApiPayment>>({});
   const [loading, setLoading] = useState(true);
 
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -68,6 +75,17 @@ export default function OrdersPage() {
     try {
       const data = await fetchUserOrdersApi();
       setOrders(data);
+
+      const promises = data.map(async (order) => {
+        const payment = await fetchPaymentByOrderIdApi(order.id);
+        return { orderId: order.id, payment };
+      });
+      const results = await Promise.all(promises);
+      const newPaymentsMap: Record<string, ApiPayment> = {};
+      results.forEach(({ orderId, payment }) => {
+        if (payment) newPaymentsMap[orderId] = payment;
+      });
+      setPaymentsMap(newPaymentsMap);
     } catch {
       toast.error('Failed to load orders from server');
     } finally {
@@ -221,6 +239,8 @@ export default function OrdersPage() {
                   { key: 'ALL', label: 'All' },
                   { key: 'PENDING', label: 'Pending' },
                   { key: 'CONFIRMED', label: 'Confirmed' },
+                  { key: 'SHIPPING', label: 'Shipping' },
+                  { key: 'DELIVERED', label: 'Delivered' },
                   { key: 'CANCELLED', label: 'Cancelled' },
                 ].map((tab) => (
                   <button
@@ -278,17 +298,65 @@ export default function OrdersPage() {
                         </span>
                       </div>
 
-                      <div>
-                        <span
-                          className={`ui-badge font-semibold text-[10px] uppercase ${order.status === 'CONFIRMED'
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : order.status === 'PENDING'
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : 'bg-rose-100 text-rose-800 border-rose-300'
-                            }`}
-                        >
-                          {order.status}
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap font-mono">
+                        {(() => {
+                          const payment = paymentsMap[order.id];
+                          const method = (payment?.paymentMethod || order.paymentMethod || 'COD').toUpperCase();
+                          const status = payment?.status || (method === 'COD' ? 'PENDING' : 'COMPLETED');
+
+                          let payBadge = null;
+                          if (status === 'COMPLETED') {
+                            payBadge = (
+                              <span className="ui-badge bg-emerald-50 border-emerald-300 text-emerald-800">
+                                ✓ PAY: {method} (PAID)
+                              </span>
+                            );
+                          } else if (status === 'REFUNDED') {
+                            payBadge = (
+                              <span className="ui-badge bg-purple-50 border-purple-300 text-purple-800">
+                                ↩ PAY: {method} (REFUNDED)
+                              </span>
+                            );
+                          } else if (status === 'FAILED') {
+                            payBadge = (
+                              <span className="ui-badge bg-rose-50 border-rose-300 text-rose-800">
+                                ✕ PAY: {method} (FAILED)
+                              </span>
+                            );
+                          } else if (method === 'COD') {
+                            payBadge = (
+                              <span className="ui-badge bg-amber-50 border-amber-300 text-amber-800">
+                                ● PAY: COD (UNPAID)
+                              </span>
+                            );
+                          } else {
+                            payBadge = (
+                              <span className="ui-badge bg-blue-50 border-blue-300 text-blue-800">
+                                ● PAY: {method} (PENDING)
+                              </span>
+                            );
+                          }
+
+                          let orderBadge = null;
+                          if (order.status === 'PENDING') {
+                            orderBadge = <span className="ui-badge bg-amber-50 border-amber-300 text-amber-800">● ORDER: PENDING</span>;
+                          } else if (order.status === 'CONFIRMED') {
+                            orderBadge = <span className="ui-badge bg-emerald-50 border-emerald-300 text-emerald-800">✓ ORDER: CONFIRMED</span>;
+                          } else if (order.status === 'SHIPPING') {
+                            orderBadge = <span className="ui-badge bg-blue-50 border-blue-300 text-blue-800">⚡ ORDER: SHIPPING</span>;
+                          } else if (order.status === 'DELIVERED') {
+                            orderBadge = <span className="ui-badge bg-emerald-50 border-emerald-300 text-emerald-800">✓ ORDER: DELIVERED</span>;
+                          } else {
+                            orderBadge = <span className="ui-badge bg-rose-50 border-rose-300 text-rose-800">✕ ORDER: CANCELLED</span>;
+                          }
+
+                          return (
+                            <>
+                              {orderBadge}
+                              {payBadge}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -325,7 +393,7 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="flex items-center gap-2 justify-end">
-                        {order.status === 'PENDING' && (
+                        {/* {order.status === 'PENDING' && (
                           <button
                             type="button"
                             onClick={() => handleOpenCancelModal(order)}
@@ -333,7 +401,7 @@ export default function OrdersPage() {
                           >
                             Cancel Order
                           </button>
-                        )}
+                        )} */}
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(order)}
@@ -459,16 +527,6 @@ export default function OrdersPage() {
             </div>
 
             <div className="space-y-4 text-xs">
-
-              {selectedOrder.status === 'CANCELLED' && selectedOrder.cancelReason && (
-                <div className="flex gap-2">
-                  <span className="text-slate-500 font-medium block">Cancellation Reason: </span>
-                  <div className="text-rose-700 font-semibold italic text-[11px] leading-relaxed">
-                    {selectedOrder.cancelReason}
-                  </div>
-                </div>
-              )}
-
               {selectedOrder.shippingAddress && (
                 <div className="space-y-1 py-1 border-b border-slate-100">
                   <span className="text-slate-500 font-medium block">Shipping Address</span>
@@ -497,7 +555,7 @@ export default function OrdersPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-slate-900 truncate">
-                            {item.productName || item.productId}
+                            {item.productName}
                           </div>
                           <div className="text-[11px] text-slate-500 mt-0.5 font-sans">
                             <span className="font-semibold text-slate-700">{item.quantity}</span> × ${Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -523,19 +581,19 @@ export default function OrdersPage() {
                       <div key={h.id || idx} className="relative">
                         <div
                           className={`absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white ${h.status === 'CONFIRMED'
-                              ? 'bg-emerald-500'
-                              : h.status === 'CANCELLED'
-                                ? 'bg-rose-500'
-                                : 'bg-amber-500'
+                            ? 'bg-emerald-500'
+                            : h.status === 'CANCELLED'
+                              ? 'bg-rose-500'
+                              : 'bg-amber-500'
                             }`}
                         />
                         <div className="flex items-center justify-between gap-2">
                           <span
                             className={`font-bold uppercase text-[10px] ${h.status === 'CONFIRMED'
-                                ? 'text-emerald-700'
-                                : h.status === 'CANCELLED'
-                                  ? 'text-rose-700'
-                                  : 'text-amber-700'
+                              ? 'text-emerald-700'
+                              : h.status === 'CANCELLED'
+                                ? 'text-rose-700'
+                                : 'text-amber-700'
                               }`}
                           >
                             {h.status}
@@ -548,6 +606,15 @@ export default function OrdersPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder.status === 'CANCELLED' && (
+                <div className="flex gap-2">
+                  <span className="text-slate-500 font-medium block">Cancellation Reason: </span>
+                  <div className="text-rose-700 font-semibold italic text-[11px] leading-relaxed">
+                    {selectedOrder.cancelReason || '(No reason specified or missing)'}
                   </div>
                 </div>
               )}

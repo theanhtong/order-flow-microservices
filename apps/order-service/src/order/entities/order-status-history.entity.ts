@@ -5,6 +5,8 @@ import type { Order } from './order.entity';
 export enum OrderStatus {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
+  SHIPPING = 'SHIPPING',
+  DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
 }
 

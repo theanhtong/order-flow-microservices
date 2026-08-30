@@ -11,7 +11,7 @@ export interface ApiOrderItem {
 
 export interface ApiOrderStatusHistory {
   id: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED';
   note?: string;
   createdAt: string;
 }
@@ -20,7 +20,7 @@ export interface ApiOrder {
   id: string;
   customerId: string;
   totalAmount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED';
   cancelReason?: string;
   items: ApiOrderItem[];
   statusHistory?: ApiOrderStatusHistory[];
@@ -29,10 +29,19 @@ export interface ApiOrder {
   recipientName?: string;
   phone?: string;
   shippingAddress?: string;
+  toWardCode?: string;
+  toDistrictId?: number;
+  paymentMethod?: string;
 }
 
 export interface CreateOrderPayload {
   customerId?: string;
+  recipientName?: string;
+  phone?: string;
+  shippingAddress?: string;
+  toWardCode?: string;
+  toDistrictId?: number;
+  paymentMethod?: string;
   items: {
     productId: string;
     quantity: number;
@@ -58,20 +67,21 @@ export async function fetchUserOrdersApi(): Promise<ApiOrder[]> {
     ]);
 
     const productMap = new Map<string, string>();
-    (productsResult.data || []).forEach((p) => {
-      productMap.set(p.id, p.name);
-    });
+    if (productsResult && productsResult.data) {
+      productsResult.data.forEach((p) => {
+        productMap.set(p.id, p.name);
+      });
+    }
 
-    return (ordersResponse.data || []).map((order) => ({
+    const orders = ordersResponse.data.map((order) => ({
       ...order,
-      totalAmount: Number(order.totalAmount || 0),
-      items: (order.items || []).map((item) => ({
+      items: order.items.map((item) => ({
         ...item,
-        price: Number(item.price || 0),
-        productName: productMap.get(item.productId) || item.productName || `Product (${item.productId.substring(0, 8)})`,
+        productName: productMap.get(item.productId) || item.productId,
       })),
-      statusHistory: order.statusHistory || [],
     }));
+
+    return orders;
   } catch (error) {
     console.error('Failed to fetch user orders:', error);
     throw error;
@@ -80,17 +90,17 @@ export async function fetchUserOrdersApi(): Promise<ApiOrder[]> {
 
 export async function updateOrderStatusApi(
   orderId: string,
-  status: 'CONFIRMED' | 'CANCELLED',
-  cancelReason?: string
+  status: 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED',
+  cancelReason?: string,
 ): Promise<ApiOrder> {
   try {
-    const response = await authApiClient.patch<ApiOrder>(
-      `/orders/${orderId}/status`,
-      { status, cancelReason }
-    );
+    const response = await authApiClient.patch<ApiOrder>(`/orders/${orderId}/status`, {
+      status,
+      cancelReason,
+    });
     return response.data;
   } catch (error) {
-    console.error(`Failed to update order #${orderId} status:`, error);
+    console.error(`Failed to update order status for Order #${orderId}:`, error);
     throw error;
   }
 }

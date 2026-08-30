@@ -27,6 +27,7 @@ async function bootstrap() {
   const productServiceUrl = configService.get<string>('PRODUCT_SERVICE_URL', 'http://localhost:3003');
   const paymentServiceUrl = configService.get<string>('PAYMENT_SERVICE_URL', 'http://localhost:3005');
   const cartServiceUrl = configService.get<string>('CART_SERVICE_URL', 'http://localhost:3007');
+  const shippingServiceUrl = configService.get<string>('SHIPPING_SERVICE_URL', 'http://localhost:3006');
 
   const createProxyErrorHandler = (serviceName: string, serviceUrl: string) => {
     return (err: any, res: any) => {
@@ -63,6 +64,7 @@ async function bootstrap() {
   app.use('/api/v1/products', proxy(productServiceUrl, createProxyOptions(productServiceUrl, '/api/v1/products', 'Product Service')));
   app.use('/api/v1/payments', proxy(paymentServiceUrl, createProxyOptions(paymentServiceUrl, '/api/v1/payments', 'Payment Service')));
   app.use('/api/v1/cart', proxy(cartServiceUrl, createProxyOptions(cartServiceUrl, '/api/v1/cart', 'Cart Service')));
+  app.use('/api/v1/shipments', proxy(shippingServiceUrl, createProxyOptions(shippingServiceUrl, '/api/v1/shipments', 'Shipping Service')));
 
   // Reverse Proxy OpenAPI Spec JSONs for Unified Swagger UI Dropdown
   app.use(

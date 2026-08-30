@@ -308,6 +308,10 @@ export default function CheckoutPage() {
     try {
       const orderPayload = {
         customerId: user.id || user.email,
+        recipientName: activeAddress.fullName,
+        phone: activeAddress.phone,
+        shippingAddress: activeAddress.address,
+        paymentMethod: paymentMethod === 'CARD' ? 'VNPAY' : paymentMethod === 'BANK_TRANSFER' ? 'BANK_QR' : 'COD',
         items: items.map((i) => ({
           productId: i.product.id,
           quantity: i.quantity,

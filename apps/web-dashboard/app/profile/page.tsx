@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import NavHeader from '../components/nav-header';
+import GhnAddressPicker from '../components/ghn-address-picker';
 import { useAuthStore } from '../store/auth-store';
 import {
   fetchUserAddressesApi,
@@ -517,19 +518,11 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] text-slate-500 font-medium block">
-                  Delivery Address *
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  value={formAddress}
-                  onChange={(e) => setFormAddress(e.target.value)}
-                  placeholder="Street address, building, district, city..."
-                  className="w-full ui-input p-2.5 text-xs resize-none"
-                />
-              </div>
+              <GhnAddressPicker
+                onChange={(val) => {
+                  setFormAddress(val.fullAddress);
+                }}
+              />
 
               <div className="space-y-1">
                 <label className="text-[11px] text-slate-500 font-medium block">
