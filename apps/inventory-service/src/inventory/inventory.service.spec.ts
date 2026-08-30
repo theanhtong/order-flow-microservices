@@ -81,10 +81,16 @@ describe('InventoryService', () => {
       expect(result).toEqual(mockInventory);
     });
 
-    it('should throw NotFoundException when product ID is invalid', async () => {
+    it('should auto-initialize new inventory record when product ID does not exist in inventory DB', async () => {
       inventoryRepositoryMock.findOne.mockResolvedValue(null);
+      inventoryRepositoryMock.create.mockImplementation((dto) => dto);
+      inventoryRepositoryMock.save.mockImplementation((entity) => Promise.resolve({ id: 'new-inv', ...entity }));
 
-      await expect(service.getByProductId('invalid-prod-uuid')).rejects.toThrow(NotFoundException);
+      const result = await service.getByProductId('new-prod-uuid');
+
+      expect(result).toBeDefined();
+      expect(result.productId).toBe('new-prod-uuid');
+      expect(result.quantity).toBe(50);
     });
   });
 
