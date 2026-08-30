@@ -194,7 +194,7 @@ export class ShippingService {
     const shipment = this.shipmentRepository.create({
       orderId,
       status: ShipmentStatus.READY_TO_PICK,
-      carrierCode: 'GHN',
+      carrierCode: carrierCode || 'GHN',
       trackingCode,
       recipientName,
       phone,
